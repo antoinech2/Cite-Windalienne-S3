@@ -1,0 +1,55 @@
+function RandomizeColor(text:text, s:number, v:number, individual:boolean = true) :: text:
+	if {_individual}:
+		set {_output} to ""
+		loop ({_text}'s length) times:
+			set {_output} to colored "%{_output}%<##%Hsv2Hex(random integer from 0 to 360, {_s}, {_v})%>%part of {_text} from character loop-number to character loop-number%"
+		return {_output}
+	else:
+		set {_color_code} to random 6 char string from `a-f0-9`
+		set {_code} to "<##%{_color_code}%>"
+		set {_output} to colored "%{_code}%%{_text}%"
+		return {_output}
+
+function NextColor(text:object, h:integer, s:number, v:number, rank:number, step:number = 1, gras:boolean = false) :: text:
+  set {_text} to "%{_text}%"
+  set {_color_output_h} to round mod({_h}+{_rank}*{_step}, 360)
+  set {_color_output} to Hsv2Hex({_color_output_h}, {_s}, {_v})
+  if {_gras}:
+    set {_output} to colored "<##%{_color_output}%>&l%{_text}%"
+  else:
+    set {_output} to colored "<##%{_color_output}%>%{_text}%"
+  return {_output}
+
+function Hsv2Hex(h:integer, s: number, v:number) :: text:
+  set {_h} to {_h}/360
+  set {_i} to floor({_h}*6)
+  set {_f} to {_h}*6-{_i}
+  set {_p} to {_v}*(1-{_s})
+  set {_q} to {_v}*(1-{_f}*{_s})
+  set {_t} to {_v}*(1-(1-{_f})*{_s})
+  set {_mod} to mod({_i}, 6)
+  if {_mod} is 0:
+    set {_r} to {_v}
+    set {_g} to {_t}
+    set {_b} to {_p}
+  else if {_mod} is 1:
+    set {_r} to {_q}
+    set {_g} to {_v}
+    set {_b} to {_p}
+  else if {_mod} is 2:
+    set {_r} to {_p}
+    set {_g} to {_v}
+    set {_b} to {_t}
+  else if {_mod} is 3:
+    set {_r} to {_p}
+    set {_g} to {_q}
+    set {_b} to {_v}
+  else if {_mod} is 4:
+    set {_r} to {_t}
+    set {_g} to {_p}
+    set {_b} to {_v}
+  else if {_mod} is 5:
+    set {_r} to {_v}
+    set {_g} to {_p}
+    set {_b} to {_q}
+  return convert rgb round({_r}*255), round({_g}*255), round({_b}*255) to hex

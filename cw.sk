@@ -1,0 +1,2468 @@
+
+#Dans les loots: ajouter items avec attibuts spéciaux
+#Vérif que tous les items de promo s'affichent sur le HD et corriger
+
+#A TESTER:
+#Coffre bonus stuff fer au début du jeu --> OK
+#Bug glowing bateaux --> OK
+#Pas de limitation du pvp au moment des coffres --> SEMBLE OK
+#Accès aux maisons --> SEMBLE OK
+
+#Génération chunk (lags)
+#Message équipe entre en pvp
+#2 Points de capture en même Temps
+#3 Coffres bonus en même temps
+
+#VARIABLES D'EQUIPE
+#	{cw.equipe.player_list::*::*} ---> Revoie la liste des joueurs d'une équipe
+#	{cw.equipe.team_player::*} ---> Renvoie le numéro d'équipe du joueur
+#	{cw.equipe.name::*}        ---> Renvoie le nom d'une équipe
+#	{cw.equipe.color::*}       ---> Renvoie la couleur d'une équipe
+# {cw.equipe.color_16::*}    ---> Renvoie la couleur minecraft (/16 (HEX))
+#	{cw.emeralds.player::*}    ---> Emeraudes personnels
+#	{cw.emeralds.equipe::*}    ---> Emeraudes d'équipes
+# {cw.list_players::player} = player --> Liste de tous les jouoeurs
+
+options:
+	cite_prefix : <##ff448f>&lC<##ff0066>&li<##f7006c>&lt<##ef0072>&lé <##e80078>&lW<##e0007f>&li<##d90085>&ln<##d1008b>&ld<##ca0092>&la<##c20098>&ll<##ba009e>&li<##b300a4>&le<##ab00ab>&ln<##a400b1>&ln<##9c00b7>&le
+	cite_title_prefix : <##ff448f>&lC<##ff0066>&lI<##f7006c>&lT<##ef0072>&lÉ <##e80078>&lW<##e0007f>&lI<##d90085>&lN<##d1008b>&lD<##ca0092>&lA<##c20098>&lL<##ba009e>&lI<##b300a4>&lE<##ab00ab>&lN<##a400b1>&lN<##9c00b7>&lE
+	saison_3 : <##f8ff00>&lS<##f8d400>&lA<##f9aa00>&lI<##fa7f00>&lS<##fa5500>&lO<##fb2a00>&lN <##fc0000>&l3
+
+command /addemerald <text> <integer>:
+	permission: admin.add
+	trigger:
+		add arg 2 to {cw.emeralds.player::%arg 1%}
+		add arg 2 to {cw.emeralds.equipe::%{cw.equipe.team_player::%arg 1%}%}
+
+every 1 hour:
+	SendVariables()
+
+function SendVariables():
+	send "*********LOGS VARIABLES************" to console
+	loop {cw.emeralds.player::*}:
+		send "set {cw.emeralds.player::%loop-index%} to %loop-value%" to console
+	loop {cw.emeralds.equipe::*}:
+		send "set {cw.emeralds.equipe::%loop-index%} to %loop-value%" to console
+
+on command "/skin":
+	cancel event
+
+command /debug:
+	permission: admin.debug
+	trigger:
+		loop {cw.list_players::*}:
+			if {cw.equipe.team_player::%loop-value%} is not set:
+				send "&1%loop-value% &4ERREUR: &cpas d'équipe définie"
+			else:
+				send "&1%loop-value% &2OK: &céquipe %{cw.equipe.team_player::%loop-value%}%"
+				set {_team} to {cw.equipe.team_player::%loop-value%}
+			set {_trouve} to false
+			loop size of {cw.equipe.player_list::*} times:
+				if {cw.equipe.player_list::%loop-number%::*} contains loop-value-1:
+					set {_trouve} to true
+					if {_team} is not loop-number:
+						send "&1%loop-value-1% &4ERREUR: &cPas de correspondance des variables d'équipes ! Equipe: %{_team}%, Dans la liste de l'équipe: %loop-number%"
+			if {_trouve} is false:
+				send "&1%loop-value-1% &4ERREUR: &cDans aucune liste d'équipe !"
+
+		loop size of {cw.equipe.player_list::*} times:
+			if {cw.equipe.name::%loop-number%} is not set:
+				send "&1Equipe %loop-number% &4ERREUR: &cpas de nom d'équipe définie"
+			else:
+				send "&1Equipe %loop-number% &2OK: &cNom d'équipe: %{cw.equipe.name::%loop-number%}%"
+			if {cw.equipe.color::%loop-number%} is not set:
+				send "&1Equipe %loop-number% &4ERREUR: &cpas de couleur d'équipe définie"
+			else:
+				send colored "&1Equipe %loop-number% &2OK: &cCouleur d'équipe: %{cw.equipe.color::%loop-number%}% COULEUR"
+		send "&1&lNombre d'équipes: %size of {cw.equipe.player_list::*}%"
+		send "&dFIN DE RAPPORT"
+
+command /resettime <text>:
+	permission: admin.reset
+	trigger:
+		if arg 1 is "all":
+			delete {cw.played_time_today::*}
+			send "&2Succès! Tous les temps réinitialisés"
+		else:
+			delete {cw.played_time_today::%arg 1%}
+			send "&2Succès! Temps de %arg 1% réinitialisé"
+
+command /unstuck [<player>]:
+	cooldown: 10 minutes
+	cooldown bypass: skript.admin
+	cooldown message: &cVous devez attendre 10 minutes avant de réutiliser cette commande
+	trigger:
+		if arg 1 is set:
+			if player has permission "unstuck.player":
+				apply resistance of tier 200 without particles to the player-arg for 8 seconds
+				set {_loc} to location of player-arg
+				add 70 to y coordinate of {_loc}
+				teleport player-arg to {_loc}
+		else:
+			if "%region at player%" contains "spawn", "nobuild", "protect_" or "no_build":
+				set {cw.unstuck_delay::%player%} to 60
+			else:
+				send "&5[{@cite_prefix}&5] &cVous ne pouvez pas vous débloquer ici car vous pouvez casser les blocs!"
+
+command /reloadplugin [<integer=15>]:
+	trigger:
+		broadcast "&5[{@cite_prefix}&5] &4ATTENTION: &6Le plugin &d&lCité Windalienne &6va redémarrer dans &c&l%arg 1% secondes ! &6Le jeu sera mis en pause pendant environ 20 secondes..."
+		loop arg 1 times:
+			send title "" with subtitle "&6LAG à venir dans &c&l%arg 1 - loop-number% secondes" to all players for 0.8 seconds with fade in 0.1 seconds and fade out 0.1 seconds
+			send action bar "&cRedémarrage du plugin dans &6%arg 1 - loop-number% secondes. Le jeu sera en pause pendant 20 secondes." to all players
+			wait 1 second
+		console command "/cw pause"
+		broadcast "&5[{@cite_prefix}&5] &6Redémarrage... &4&lPatientez environ 20 secondes..."
+		wait 10 ticks
+		console command "/sk reload cw"
+		wait 1 second
+		console command "/cw play"
+		broadcast "&5[{@cite_prefix}&5] &2&lRedémarrage terminé !"
+
+on connect:
+	if {cw.played_time_today::%player%} >= 720:
+		kick player due to "&c&lTemps de connexion écoulé pour aujourd'hui !%nl%&dRevenez après 8h00 :)%nl%&eBonne nuit !"
+	if "%player%" is not "antoinech" or "Admin":
+		if {cw.cite_status} is not "spectator", "open", "prepare" or "run":
+			kick player due to "&d&lLe serveur ouvre à 14h00."
+		else if {cw.list_players::%player%} is not set:
+			kick player due to "&d&lVous n'êtes pas inscrit à cet événement.%nl%&2Si vous pensez qu'il s'agit d'une erreur, contactez &2&lantoinech##2637 &2sur Discord"
+
+on join:
+	if "%player%" is "Admin":
+		set display name of player to "&7[&4&lADMIN&7]"
+	else:
+		set display name of player to "&7[%{cw.equipe.color::%{cw.equipe.team_player::%player%}%}%%{cw.equipe.name::%{cw.equipe.team_player::%player%}%}%&7] %{cw.equipe.color::%{cw.equipe.team_player::%player%}%}%&l%player%"
+	set join message to "&7[&2+&7] %display name of player%"
+	#set player tab name to "%{cw.equipe.color::%{cw.equipe.team_player::%player%}%}%%player%"
+	set player tab name to display name of player
+	wait 1 second
+	if {cw.cite_status} is "open":
+		set gamemode of player to adventure
+	else if {cw.cite_status} is "spectator":
+		set gamemode of player to spectator
+		set fly speed of player to 0.2
+	else:
+		apply resistance of tier 200 without particles to player for 5 seconds
+		apply weakness of tier 200 without particles to player for 5 seconds
+
+on quit:
+	set quit message to "&7[&4-&7] %display name of player%"
+	if {cw.combat.time_left::%player%} is set:
+		kill player
+		broadcast "&5[{@cite_prefix}&5] %display name of player% &6a été tué pour s'être déconnecté en combat."
+
+command /list:
+	cooldown: 30 seconds
+	cooldown bypass: skript.admin
+	cooldown message: Cooldown de 30 secondes... &c(%remaining% restantes...)
+	trigger:
+		send "&5[{@cite_prefix}&5] &6Liste des joueurs connectés:"
+		loop all players:
+			if {cw.is_brouille::%loop-player%} is set:
+				if {cw.is_brouille::%loop-player%} is 1:
+					set {_world} to "&8&l&kbrouille"
+					set {_region} to "&8&l&kbrouille"
+					set {_poids} to "&8&l&kbrouille"
+					set {_invi} to ""
+				else:
+					set {_datas::*} to {cw.is_brouille::%loop-player%} split by "|"
+					set {_world} to {_datas::1}
+					set {_region} to {_datas::2}
+					set {_poids} to {_datas::3}
+					set {_invi} to ""
+			else:
+				if loop-player is in world "cite":
+					set {_world} to "&a&lOverWorld"
+				else if loop-player is in world "cite_nether":
+					set {_world} to "&c&lNether"
+				else if loop-player is in world "cite_the_end":
+					set {_world} to "&b&lEnd"
+				if "%region at loop-player%" contain "spawn":
+					set {_region} to "&d&lSpawn"
+				else if "%region at loop-player%" contain "warzone":
+					set {_region} to "&4&lWarZone"
+				else if "%region at loop-player%" contain "zonelibre":
+					set {_region} to "&b&lZone libre"
+				else:
+					set {_region} to "&e&lZone d'exploration"
+				if {cw.is_invisible::%loop-player%}:
+					set {_invi} to "&7[INVISIBLE]"
+				else:
+					set {_invi} to ""
+				if number of emerald in loop-player's inventory is 0:
+					set {_poids} to "Vide"
+				else if number of emerald in loop-player's inventory <= 15:
+					set {_poids} to "Très léger"
+				else if number of emerald in loop-player's inventory <= 35:
+					set {_poids} to "Léger"
+				else if number of emerald in loop-player's inventory <= 70:
+					set {_poids} to "Moyen"
+				else if number of emerald in loop-player's inventory <= 150:
+					set {_poids} to "Lourd"
+				else if number of emerald in loop-player's inventory <= 300:
+					set {_poids} to "Très lourd"
+				else:
+					set {_poids} to "Extrêmement lourd"
+			send colored "&6%display name of loop-player%: %{_world}%, %{_region}%  &7Poids: &5%{_poids}%  %{_invi}%"
+
+command /cwd <player>:
+	executable by: console
+	trigger:
+		send "&5[{@cite_prefix}&5] &2Cliquez sur le nombre d'émeraudes que vous voulez déposer ou reprendre%nl%&6Vous avez &c&l%number of emeralds in player-arg's inventory% &6émeraudes dans votre inventaire" to player-arg
+		json("%player-arg%", "&8[&2+ &9Déposer 1&8]||cmd:/z!&^cwp 1||ttp:Cliquez ici pour déposer 1 émeraude de votre inventaire!")
+		json("%player-arg%", "&8[&2++ &9Déposer 16&8]||cmd:/z!&^cwp 16||ttp:Cliquez ici pour déposer 16 émeraudes de votre inventaire!")
+		json("%player-arg%", "&8[&2+++ &9Déposer 32&8]||cmd:/z!&^cwp 32||ttp:Cliquez ici pour déposer 32 émeraudes de votre inventaire!")
+		json("%player-arg%", "&8[&2++++ &9Déposer 64&8]||cmd:/z!&^cwp 64||ttp:Cliquez ici pour déposer 64 émeraudes de votre inventaire!")
+		json("%player-arg%", "&8[&2&l+++++ &9&lDéposer tout&8]||cmd:/z!&^cwp 100000||ttp:Cliquez ici pour déposer tout les émeraudes de votre inventaire!")
+
+command /z!&^cwp <integer>:
+	trigger:
+		if "%region at player%" contains "spawn":
+			set {_num} to number of emeralds in player's inventory
+			if {_num} > 0:
+				set {_deposit} to arg 1
+				if {_deposit} > {_num}:
+					set {_deposit} to {_num}
+				#set {_item} to "%{_deposit}% emeralds" parsed as item
+				#remove {_item} from player's inventory
+				console command "/clear %player% minecraft:emerald %{_deposit}%"
+				add {_deposit} to {cw.emeralds.player::%player%}
+				add {_deposit} to {cw.emeralds.equipe::%{cw.equipe.team_player::%player%}%}
+				send "&5[{@cite_prefix}&5] &6Vous avez déposé &2&l%{_deposit}% &2émeraudes &6en banque.%nl%&6- Emeraudes personnels: &2&l%{cw.emeralds.player::%player%}%%nl%&6- Emeraudes d'équipe: &2&l%{cw.emeralds.equipe::%{cw.equipe.team_player::%player%}%}%" to player
+				send "&5[{@cite_prefix}&5] &7[&8&lÉquipe&7] %display name of player% &2a déposé &2&l%{_deposit}% &2émeraudes &6en banque.%nl%&6- Emeraudes d'équipe: &2&l%{cw.emeralds.equipe::%{cw.equipe.team_player::%player%}%}%" to {cw.equipe.player_list::%{cw.equipe.team_player::%player%}%::*}
+				#broadcast "&5[{@cite_prefix}&5] %display name of player% &6vient de déposer &2&l%{_deposit}% émeraudes &6en banque."
+				if {_deposit} < 10:
+					set {_text} to "quelques "
+				else if {_deposit} < 100:
+					set {_text} to "des dizaines d'"
+				else if {_deposit} < 1000:
+					set {_text} to "des centaines d'"
+				else:
+					set {_text} to "des miliers d'"
+				broadcast "&5[{@cite_prefix}&5] %display name of player% &6vient de déposer &2&l%{_text}%émeraudes &6en banque."
+
+				console command "/advancement grant %player% only cite:saved_emerald"
+				if {_deposit} >= 1000:
+					console command "/advancement grant %player% only cite:deposit_1000"
+				if {_deposit} >= 2304:
+					console command "/advancement grant %player% only cite:deposit_full_inventory"
+				if {cw.advancement::first_deposit} is not set:
+					console command "/advancement grant %player% only cite:first_deposit"
+					set {cw.advancement::first_deposit} to player
+				CheckAdvancement(player)
+				UpdateClassement()
+			else:
+				send "&5[{@cite_prefix}&5] &cVous n'avez pas d'émeraudes dans votre inventaire."
+		else:
+			send "&5[{@cite_prefix}&5] &cVous ne pouvez déposer des émeraudes que au spawn."
+
+command /cw <text>:
+	permission: cw.admin
+	trigger:
+		if arg 1 is "open":
+			send "&4&lOUVERTURE DU SERVEUR"
+			send "&d&l- Rénitialiser les objectifs minecraft"
+			ResetTotal()
+			wait 1 tick
+			WipeScoreBoard()
+			disable pvp in world "cite"
+			set {cw.cite_status} to "open"
+			console command "/worldborder set 200"
+			console command "/whitelist off"
+			console command "/time set 0"
+			console command "/gamerule doDaylightCycle false"
+			console command "/gamerule doMobSpawning false"
+			set {cw.stop_lag} to 0
+		else if arg 1 is "prepare":
+			send "&4&lPREPARATION DU SERVEUR"
+			set {cw.cite_status} to "prepare"
+			send action bar "&c&lDémarrage en jeu entre 15h00 et 15h30..." to all players
+			WipeScoreBoard()
+			loop all players:
+				teleport loop-player to {cw.location.spawn}
+				set gamemode of loop-player to spectator
+		else if arg 1 is "start":
+			set {cw.cite_status} to "starting"
+			send "&4&lDEMMARAGE DU JEU"
+			WipeScoreBoard()
+			if {cw.reductions::1} is set:
+				RemoveRandomReduction()
+			loop {cw.equipe.team_player::*}:
+				set {cw.emeralds.player::%loop-index%} to 0
+				set {cw.emeralds.top.player::%loop-index%} to 0
+				set {cw.death.kill::%loop-index%} to 0
+				set {cw.death.tue::%loop-index%} to 0
+				set {cw.death.pve::%loop-index%} to 0
+			loop size of {cw.equipe.name::*} times:
+				set {cw.emeralds.equipe::%loop-number%} to 0
+				set {cw.emeralds.top.equipe::%loop-number%} to 0
+			loop {cw.capture.name::*}:
+				set {cw.capture.stored_emeralds::%loop-index%} to 0
+				set {cw.capture.emerald_per_hour::%loop-index%} to 0
+			set {cw.region_pass_status::Admin} to true
+			set {cw.stop_lag} to 0
+			wait 10 tick
+			UpdateClassement()
+			set gamemode of all players to adventure
+			apply invisibility of tier 200 without particles to all players for 85 seconds
+			teleport all players to {cw.location.preapre}
+			set {cw.time_before_start} to 86
+			wait 1 second
+			send title "&2&lWindalia" with subtitle "&a&lprésente..." to all players for 0.75 seconds with fade in 0.75 seconds and fade out 0.75 seconds
+			wait 3 second
+			send title "&6&lAvec" with subtitle "&c&l%size of {cw.list_players::*}% participants..." to all players for 2 seconds seconds with fade in 0.75 seconds and fade out 2 seconds
+			wait 3 second
+			set {_num} to 1
+			loop {cw.list_players::*}:
+				play sound "block.enchantment_table.use" in hostile mobs category at volume 10 at pitch 0.5+({_num}/21) to all players
+				send title colored "&e%{cw.equipe.color::%{cw.equipe.team_player::%loop-value%}%}%%loop-value%" with subtitle "" to all players for 0.75 seconds with fade in 0.5 seconds and fade out 0.75 seconds
+				wait 1.25 second
+				add 1 to {_num}
+			wait 1 second
+			set {_cite_title_prefix} to colored "{@cite_title_prefix}"
+			set {_saison_3} to colored "{@saison_3}"
+			loop 16 times:
+				play sound "entity.generic.explode" in hostile mobs category at volume 10 at pitch 0.5+(loop-number/10) to all players
+				send title (part of {_cite_title_prefix} from character 1 to character loop-number*17) with subtitle (part of {_saison_3} from character 1 to character round loop-number*8) to all players for 0.75 seconds with fade in 0.75 seconds and fade out 0.75 seconds
+				wait 1 second
+			play sound "ui.toast.challenge_complete" in hostile mobs category at volume 0.5 at pitch 0.5 to all players
+			play sound "ui.toast.challenge_complete" in hostile mobs category at volume 0.5 at pitch 0.6 to all players
+			play sound "ui.toast.challenge_complete" in hostile mobs category at volume 0.5 at pitch 0.7 to all players
+			play sound "ui.toast.challenge_complete" in hostile mobs category at volume 0.5 at pitch 0.8 to all players
+			play sound "ui.toast.challenge_complete" in hostile mobs category at volume 0.5 at pitch 0.9 to all players
+			play sound "ui.toast.challenge_complete" in hostile mobs category at volume 0.5 at pitch 1.1 to all players
+			play sound "ui.toast.challenge_complete" in hostile mobs category at volume 0.5 at pitch 1.3 to all players
+			play sound "ui.toast.challenge_complete" in hostile mobs category at volume 0.5 at pitch 1.5 to all players
+			play sound "ui.toast.challenge_complete" in hostile mobs category at volume 0.5 at pitch 1.8 to all players
+			play sound "ui.toast.challenge_complete" in hostile mobs category at volume 0.5 at pitch 2 to all players
+			loop 140 times:
+				send title NextColor("CITÉ WINDALIENNE", 0, 0.9, 0.9, loop-number, 12) with subtitle NextColor("SAISON 3", 60, 0.9, 0.9, loop-number, 20) to all players for 3 seconds seconds with fade in 0 seconds and fade out 0 seconds
+				wait 1 tick
+			send title {_cite_title_prefix} with subtitle {_saison_3} to all players for 3 seconds with fade in 0.75 seconds and fade out 0.75 seconds
+			wait 2 seconds
+			console command "/gamerule announceAdvancements true"
+			wait 1 tick
+			console command "/advancement revoke @a everything"
+			console command "/worldborder set 3"
+			console command "/difficulty easy"
+			loop all players:
+				teleport loop-player to {cw.location.spawn}
+				set gamemode of loop-player to survival
+				heal loop-player
+				feed loop-player
+				clear loop-player's inventory
+				set compass target of loop-player to {cw.location.spawn}
+
+			wait 3 seconds
+			send title "&210" with subtitle "&6Préparez vous..." to all players for 1 seconds
+			play sound "ENTITY_EXPERIENCE_ORB_PICKUP" at volume 100 and pitch 2 to all players
+			wait 1 seconds
+			send title "&29" with subtitle "&6Préparez vous..." to all players for 1 seconds
+			play sound "ENTITY_EXPERIENCE_ORB_PICKUP" at volume 100 and pitch 1.9 to all players
+			wait 1 seconds
+			send title "&a8" with subtitle "&6Préparez vous..." to all players for 1 seconds
+			play sound "ENTITY_EXPERIENCE_ORB_PICKUP" at volume 100 and pitch 1.8 to all players
+			wait 1 seconds
+			send title "&e7" with subtitle "&6Ca va commencer!" to all players for 1 seconds
+			play sound "ENTITY_EXPERIENCE_ORB_PICKUP" at volume 100 and pitch 1.7 to all players
+			wait 1 seconds
+			send title "&e6" with subtitle "&6Ca va commencer!" to all players for 1 seconds
+			play sound "ENTITY_EXPERIENCE_ORB_PICKUP" at volume 100 and pitch 1.6 to all players
+			wait 1 seconds
+			send title "&65" with subtitle "&6Attention!" to all players for 1 seconds
+			play sound "ENTITY_EXPERIENCE_ORB_PICKUP" at volume 100 and pitch 1.5 to all players
+			wait 1 seconds
+			send title "&64" with subtitle "&6Attention!" to all players for 1 seconds
+			play sound "ENTITY_EXPERIENCE_ORB_PICKUP" at volume 100 and pitch 1.3 to all players
+			wait 1 seconds
+			send title "&c3" with subtitle "&6Attention!" to all players for 1 seconds
+			play sound "ENTITY_EXPERIENCE_ORB_PICKUP" at volume 100 and pitch 1.1 to all players
+			wait 1 seconds
+			send title "&c2" with subtitle "&6A vos marques" to all players for 1 seconds
+			play sound "ENTITY_EXPERIENCE_ORB_PICKUP" at volume 100 and pitch 0.9 to all players
+			wait 1 seconds
+			send title "&41" with subtitle "&6Prêts?" to all players for 1 seconds
+			play sound "ENTITY_EXPERIENCE_ORB_PICKUP" at volume 100 and pitch 0.7 to all players
+			wait 1 seconds
+			send title "&4C'est parti" with subtitle "&6C'est parti" to all players for 1 seconds
+			play sound "ENTITY_EXPERIENCE_ORB_PICKUP" at volume 100 and pitch 0.5 to all players
+			wait 1 seconds
+			send title "&4GO" with subtitle "" to all players for 1 seconds
+			play sound "item.totem.use" in hostile mobs category at volume 10 at pitch 0.5 to all players
+			play sound "item.totem.use" in hostile mobs category at volume 10 at pitch 2 to all players
+			set {cw.cite_status} to "run"
+			broadcast "&5[{@cite_prefix}&5] &d&lDémarrage du jeu! %nl%&6- Vous êtes invincible pendant 10 minutes%nl%&6- Vous avez l'effet rapidité 3 pendant 10 minutes%nl%&6- La bordure prendra &c&l1 minute &6pour parcourir le spawn."
+			console command "/gamerule doDaylightCycle true"
+			console command "/gamerule doMobSpawning true"
+			set {cw.start_timestamp} to now
+			console command "/worldborder set 125 20"
+			wait 20 seconds
+			console command "/worldborder set 200 40"
+			wait 40 seconds
+			broadcast "&5[{@cite_prefix}&5] &6&lLa bordure a atteint la &4&lWarzone&6&l! Elle prendra &c&l25 minutes &6pour la parcourir."
+		else if arg 1 is "pause":
+			send "&4&lJEU EN PAUSE"
+			set {cw.cite_status} to "pause"
+			broadcast "&5[{@cite_prefix}&5] &c&lAttention: &4&lJeu mis en pause! &6Veuillez patienter"
+			send title "&cJeu en &4&lPAUSE" with subtitle "&d&lPatientez..." to all players for 1000 seconds with fade in 0.75 seconds and fade out 0.75 seconds
+		else if arg 1 is "play":
+			send "&4&lREPRISE DU JEU"
+			set {cw.cite_status} to "run"
+			broadcast "&5[{@cite_prefix}&5] &c&lAttention: &6Reprise du jeu"
+			send title "&2&lFin de pause!" with subtitle "&d&lVous pouvez jouer" to all players for 2 seconds with fade in 0.75 seconds and fade out 0.75 seconds
+		else if arg 1 is "players":
+			loop {cw.list_players::*}:
+				if loop-value is not online:
+					send "Manquant: %loop-index%"
+		else if arg 1 is "reset":
+			ResetTotal()
+			wait 1 tick
+			WipeScoreBoard()
+			send "&4RESET EFFECTUé"
+		# else if arg 1 is "fixchest":
+		# 	loop {cw.equipe.team_player::*}:
+		# 		console command "/rg addmember -w cite maison_%loop-index% %loop-index%"
+		# else if arg 1 is "random":
+		# 	set {_npc} to random integer between 1 and 9
+		# 	if {_npc} is 1:
+		# 		set {_item} to random integer between 1 and 8
+		# 	else if {_npc} is 2:
+		# 		set {_item} to random integer between 1 and 11
+		# 	else if {_npc} is 3:
+		# 		set {_item} to random integer between 1 and 16
+		# 	else if {_npc} is 4:
+		# 		set {_item} to random integer between 1 and 14
+		# 	else if {_npc} is 5:
+		# 		set {_item} to random integer between 1 and 14
+		# 	else if {_npc} is 6:
+		# 		set {_item} to random integer between 1 and 20
+		# 	else if {_npc} is 7:
+		# 		set {_item} to random integer between 1 and 28
+		# 	else if {_npc} is 8:
+		# 		set {_item} to random integer between 1 and 20
+		# 	else if {_npc} is 9:
+		# 		set {_item} to random integer between 1 and 33
+		# 	send "NPC: %{_npc}%,  ITEM: %{_item}%" to player
+
+on any move:
+	if {cw.cite_status} is "pause":
+		cancel event
+		send action bar "&6&lVous ne pouvez pas bouger pendant la pause..." to player
+
+command /attack <player>:
+	trigger:
+		if {cw.next_attack::%{cw.equipe.team_player::%player-arg%}%::%player%} is set:
+			delete {cw.next_attack::%{cw.equipe.team_player::%player-arg%}%::%player%}
+			send colored "&5[{@cite_prefix}&5] &a&lVous avez mis fin à la pédiode d'invulnérabilité entre vous et l'équipe %{cw.equipe.color::%{cw.equipe.team_player::%player-arg%}%}%%{cw.equipe.name::%{cw.equipe.team_player::%player-arg%}%}%" to player
+			send "&5[{@cite_prefix}&5] %display name of player% &a&la mis fin à la pédiode d'invulnérabilité entre votre équipe et lui" to {cw.equipe.player_list::%{cw.equipe.team_player::%player-arg%}%::*}
+		else:
+			send "&5[{@cite_prefix}&5] &cVous n'avez aucune pédiode d'invulnérabilité avec cette équipe !"
+
+#on command "/op":
+#	cancel event
+
+on shopkeeper trade completion:
+	console command "/advancement grant %player% only cite:first_trade"
+	set {_slot} to slot 0 of player's current inventory
+	set {_slot} to type of {_slot}
+	set {_slot2} to slot 1 of player's current inventory
+	set {_slot2} to type of {_slot2}
+	add 1 to {cw.trade::%{_slot}%::%player%}
+	if {cw.trade::%{_slot}%::%player%} >= 300:
+		set {_stop} to true
+	else if {cw.trade::%{_slot2}%::%player%} >= 300:
+		set {_stop} to true
+	if event-string is "Item Speciaux":
+		console command "/advancement grant %player% only cite:buy_special_item"
+	if {_stop}:
+		cancel event
+		send action bar "&c&lVous ne pouvez plus vendre cet item !" to player
+		console command "/advancement grant %player% only cite:full_trade"
+		if {cw.advancement::first_full_trade} is not set:
+			console command "/advancement grant %player% only cite:first_full_trade"
+			set {cw.advancement::first_full_trade} to player
+		set {_pass} to true
+		loop {cw.equipe.player_list::%{cw.equipe.team_player::%player%}%::*}:
+			if {cw.trade::%{_slot}%::%loop-value%} is not set:
+				set {_pass} to false
+			else if {cw.trade::%{_slot2}%::%loop-value%} is not set:
+				set {_pass} to false
+			else if {cw.trade::%{_slot}%::%loop-value%} < 300:
+				set {_pass} to false
+			else if {cw.trade::%{_slot2}%::%loop-value%} < 300:
+				set {_pass} to false
+		if {_pass}:
+			loop {cw.equipe.player_list::%{cw.equipe.team_player::%player%}%::*}:
+				console command "/advancement grant %loop-value% only cite:full_trade_team"
+	else:
+		send action bar "&c&l%300-{cw.trade::%{_slot}%::%player%}% &6échanges restants pour cet item." to player
+		wait 2 seconds
+		send action bar "&c&l%300-{cw.trade::%{_slot}%::%player%}% &6échanges restants pour cet item." to player
+
+on right click on a villager:
+	if "%region at player%" doesn't contain "spawn":
+		set {cw.villager.player::%player%} to event-entity
+
+on inventory close:
+	delete {cw.villager.player::%player%}
+
+#VERIFIER QUE C'EST UNIQUE A CHAQUE VILLAGEOIS --> Ca à l'air bon
+on inventory click:
+	#set {test.slot} to clicked slot
+	#broadcast "Test %clicked slot% %current inventory of player% %player%"
+	if "%event-inventory%" is "inventory of villager":
+		if clicked slot is slot 2 of player's current inventory:
+			if event-inventoryaction is not nothing:
+				if event-item is emerald:
+					if event-clicktype is not left mouse button with shift:
+						cancel event
+						send action bar "&c&lSHIFT + Clic gauche &6pour récupérer les émeraudes." to player
+					else:
+						if {cw.villager.time_rest::%{cw.villager.player::%player%}%} is not set:
+							set {cw.villager.time_rest::%{cw.villager.player::%player%}%} to 30
+						#set {_num} to part of event-item from character 1 to character 2
+						#set {_int} to "%{_num}%" parsed as integer
+						#broadcast "%event-item%"
+						set {_num} to number of emeralds in player's inventory
+						wait 1 tick
+						set {_num2} to number of emeralds in player's inventory
+						set {_diff} to {_num2}-{_num}
+						remove {_diff} from {cw.villager.time_rest::%{cw.villager.player::%player%}%}
+						send action bar "&6Plus que &c%{cw.villager.time_rest::%{cw.villager.player::%player%}%}% &6échanges avec ce villageois." to player
+						if {cw.villager.time_rest::%{cw.villager.player::%player%}%} <= 0:
+							kill {cw.villager.player::%player%}
+							send action bar "&c&lAucun échange restant &6avec ce villageois." to player
+							console command "/advancement grant %player% only cite:villager_die"
+
+on region enter:
+	if {cw.cite_status} is "run":
+		if "%region%" contains "spawn":
+			if "%region at player%" doesn't contain "portail":
+				if {cw.pass_spawn::%player%} is not set:
+					if "%region at player%" doesn't contain "porte_entree":
+						cancel event
+						send action bar "&6Vous ne pouvez pas rentrer! &cPassez par la porte!" to player
+					else:
+						if {cw.region_pass_status::%player%} is not true:
+							cancel event
+							send action bar "&6Patientez avant de passer!" to player
+			else:
+				send title "" with subtitle "&d&lSpawn" to player for 0.75 seconds with fade in 0.75 seconds and fade out 0.75 seconds
+				PlaySoundChangeZone(player)
+		else if "%region%" contains "porte_entree":
+			if "%region at player%" doesn't contain "spawn":
+				set {cw.region_pass_delay::%player%} to 8
+			else:
+				set {cw.region_pass_delay::%player%} to 5
+				apply resistance of tier 200 without particles to the player for 4 seconds
+				apply weakness of tier 200 without particles to the player for 4 seconds
+			set {cw.region_pass_status::%player%} to false
+			send title "&aVeuillez patienter" with subtitle "<##ff0000>&l%{cw.region_pass_delay::%player%}% &6seconde(s)..." to player for 0.5 seconds with fade in 0.25 seconds and fade out 0.25 seconds
+		else if "%region%" contains "warzone":
+			if "%region at player%" doesn't contain "spawn":
+				if "%region at player%" doesn't contain "portail":
+					if gliding state of player is true:
+						set gliding state of player to false
+						apply resistance of tier 200 without particles to player for 8 seconds
+						send action bar "&6Elytres désactivées en entrée de Warzone. Déjà de chute désactivés !" to player
+					send title "" with subtitle "&4&lWarZone" to player for 0.75 seconds with fade in 0.75 seconds and fade out 0.75 seconds
+					PlaySoundChangeZone(player)
+					delete {cw.regeneration_delay::%player%}
+					if {cw.is_invisible::%player%} is not set:
+						set glowing of player to on
+				else:
+					send title "" with subtitle "&d&lSpawn" to player for 0.75 seconds with fade in 0.75 seconds and fade out 0.75 seconds
+					PlaySoundChangeZone(player)
+					wait 1.5 seconds
+					if {cw.in_spawn_time::%player%} >= 19:
+						send title "&4&lAttention !" with subtitle "&6Temps au &d&lSpawn &6écoulé !" to player for 3 seconds with fade in 1 seconds and fade out 5 seconds
+						send "&5[{@cite_prefix}&5] &6Votre chronomètre de temps au spawn n'est pas encore réinitialisé et vous risquez un malus dès la prochaine minute ! &eSortez du spawn et revenez plus tard !%nl%&e Vous serez averti lorsque votre chronomètre sera réinitialisé."
+					else if {cw.in_spawn_time::%player%} >= 13:
+						send title "&c&lAttention !" with subtitle "&6Temps au &d&lSpawn &6bientôt écoulé !" to player for 3 seconds with fade in 1 seconds and fade out 5 seconds
+						send "&5[{@cite_prefix}&5] &6Votre chronomètre de temps au spawn n'est pas encore totalement réinitialisé et vous risquez un malus dans les prochaines minutes ! &aIl vous reste %20-{cw.in_spawn_time::%player%}% minutes dans le &d&lSpawn ! %nl%&eSortez du spawn et revenez plus tard ! &e Vous serez averti lorsque votre chronomètre sera réinitialisé."
+
+		else if "%region%" contains "zonelibre":
+			if "%region at player%" doesn't contain "warzone":
+				send title "" with subtitle "&b&lZone libre" to player for 0.75 seconds with fade in 0.75 seconds and fade out 0.75 seconds
+				PlaySoundChangeZone(player)
+		else if "%region%" contains "portail_nether":
+			if {cw.time_diff} < 2 hours:
+				cancel event
+				send action bar "&6Ouverture du &cNether &6au bout de 2 heures de jeu." to player
+		else if "%region%" contains "portail_end":
+			if {cw.time_diff} < 25 hours:
+				cancel event
+				send action bar "&6Ouverture de l'&cEnd &6au bout de 1 jour de jeu." to player
+		else if "%region%" contains "protect_":
+			send "&5[{@cite_prefix}&5] &cAttention : &dVous entrez dans une zone non protégée par le ""PvP régulé"". Vous n'êtes pas en sécurité !"
+		else if "%region%" contains "point_":
+			loop {cw.capture.attacker::*}:
+				if loop-value is player:
+					if "%region%" contains "point_%loop-index%":
+						if {cw.capture.attack_load_time::%loop-index%} < 0:
+							broadcast "&5[{@cite_prefix}&5] &7[&5&lCapture&7] &6%display name of {cw.capture.attacker::%loop-index%}% &6commence la capture du point %{cw.capture.name::%loop-index%}%!"
+							StartCapture(loop-index parsed as integer)
+							stop
+	else if {cw.cite_status} is not "spectator":
+		if "%region%" contains "portail_nether" or "portail_end":
+			cancel event
+			send action bar "&6Le jeu n'a pas démarré! Ce monde n'est pas accessible." to player
+#		else if "%region%" contains "echange":
+#			cancel event
+#			send action bar "&6Le jeu n'a pas démarré! Cette zone n'est pas accessible." to player
+
+on region exit:
+	if {cw.cite_status} is "run":
+		if "%region%" contains "game":
+			if y-coord of player > 250:
+				cancel event
+				send action bar "&6Vous ne pouvez pas aller au-delà de la couche 255!" to player
+				console command "/advancement grant %player% only cite:reach_250_height"
+		if "%region%" contains "spawn":
+			if "%region at player%" doesn't contain "portail":
+				if "%region at player%" doesn't contain "porte_entree":
+					cancel event
+					send action bar "&6Vous ne pouvez pas sortir! &cPassez par la porte!" to player
+				else:
+					if {cw.region_pass_status::%player%} is not true:
+						cancel event
+						send action bar "&6Patientez avant de passer!" to player
+		else if "%region%" contains "porte_entree":
+			remove resistance from player
+			remove weakness from player
+			if {cw.region_pass_status::%player%} is not true:
+				send title "" with subtitle "&c&lAnnulé !" to player for 0.25 seconds with fade in 0.25 seconds and fade out 0.25 seconds
+			else:
+				if "%region at player%" contains "spawn":
+					wait 1.5 second
+					send title "" with subtitle "&d&lSpawn" to player for 0.75 seconds with fade in 0.75 seconds and fade out 0.75 seconds
+					PlaySoundChangeZone(player)
+					set glowing of player to off
+					wait 1.5 seconds
+					if {cw.in_spawn_time::%player%} >= 19:
+						send title "&4&lAttention !" with subtitle "&6Temps au &d&lSpawn &6écoulé !" to player for 3 seconds with fade in 1 seconds and fade out 5 seconds
+						send "&5[{@cite_prefix}&5] &6Votre chronomètre de temps au spawn n'est pas encore réinitialisé et vous risquez un malus dès la prochaine minute ! &eSortez du spawn et revenez plus tard !%nl%&e Vous serez averti lorsque votre chronomètre sera réinitialisé."
+					else if {cw.in_spawn_time::%player%} >= 13:
+						send title "&c&lAttention !" with subtitle "&6Temps au &d&lSpawn &6bientôt écoulé !" to player for 3 seconds with fade in 1 seconds and fade out 5 seconds
+						send "&5[{@cite_prefix}&5] &6Votre chronomètre de temps au spawn n'est pas encore totalement réinitialisé et vous risquez un malus dans les prochaines minutes ! &aIl vous reste &2%20-{cw.in_spawn_time::%player%}% &2minutes &adans le &d&lSpawn ! %nl%&eSortez du spawn et revenez plus tard ! &e Vous serez averti lorsque votre chronomètre sera réinitialisé."
+				else:
+					set gliding state of player to false
+					wait 1 second
+					send title "" with subtitle "&4&lWarZone" to player for 0.75 seconds with fade in 0.75 seconds and fade out 0.75 seconds
+					if world of player is "cite_the_end":
+						set {_ennemies} to 0
+						loop all players:
+							if {cw.equipe.team_player::%player%} is not {cw.equipe.team_player::%loop-player%}:
+								add 1 to {_ennemies}
+						if {_ennemies} >= 2:
+							console command "/advancement grant %player% only cite:enter_waronze_end_with_ennemies"
+					console command "/advancement grant %player% only cite:exit_spawn"
+					if {cw.in_spawn_time::%player%} is 19:
+						console command "/advancement grant %player% only cite:spawn_19m"
+					PlaySoundChangeZone(player)
+					if {cw.is_invisible::%player%} is not set:
+						set glowing of player to on
+			delete {cw.region_pass_delay::%player%}
+			delete {cw.region_pass_status::%player%}
+		else if "%region%" contains "warzone":
+			if "%region at player%" doesn't contain "spawn":
+				set glowing of player to off
+				if world of player is "cite_the_end":
+					if {cw.advancement::first_end_exploration} is not set:
+						console command "/advancement grant %player% only cite:first_end_exploration"
+						set {cw.advancement::first_end_exploration} to player
+				if world of player is "cite_nether" or "cite_the_end":
+					send title "" with subtitle "&e&lZone d'exploration" to player for 0.75 seconds with fade in 0.75 seconds and fade out 0.75 seconds
+				else:
+					send title "" with subtitle "&b&lZone libre" to player for 0.75 seconds with fade in 0.75 seconds and fade out 0.75 seconds
+					if {cw.time_diff} < 30 minutes:
+						console command "/advancement grant %player% only cite:exit_warone"
+				PlaySoundChangeZone(player)
+				set {cw.regeneration_delay::%player%} to 15
+		else if "%region%" contains "zonelibre":
+			send title "" with subtitle "&e&lZone d'exploration" to player for 0.75 seconds with fade in 0.75 seconds and fade out 0.75 seconds
+			if {cw.time_diff} is between 179 minutes and 195 minutes:
+				console command "/advancement grant %player% only cite:exit_zone_libre"
+			PlaySoundChangeZone(player)
+	else if {cw.cite_status} is "prepare":
+		if "%region%" contains "spawn":
+			cancel event
+			send action bar "&6Le jeu n'a pas démarré! Vous ne pouvez pas sortir du spawn" to player
+
+on gliding state change:
+	if "%region at player%" contains "warzone":
+		if "%region at player%" doesn't contain "spawn":
+			cancel event
+			send action bar "&6Elytres désactivées en &4Warzone" to player
+
+every 2 ticks:
+	if difference between {cw.last_second} and now >= 1 second:
+		Every1Second()
+	if difference between {cw.last_2_second} and now >= 2 second:
+		Every2Seconds()
+	if difference between {cw.last_5_second} and now >= 5 second:
+		Every5Second()
+
+function Every5Second():
+	set {cw.last_5_second} to now
+	if {cw.cite_status} is "run":
+		if {cw.stop_lag} <= 2:
+			ShowScoreBoard()
+		if {cw.stop_lag} <= 3:
+			set {_time} to NextColor("%now%", 0, 0.70, 0.87, round unix timestamp of now, 3)
+			set {_tps} to min(20, tps from last 1 minute + 3)
+			loop all players:
+				#set tab header to "{@cite_prefix} SAISON 2" and footer to "&7Joueurs en ligne: &e&l%number of players%\n&7TPS: &b&l%tps from last 1 minute%\n&7Ping: &e%ping of loop-player%ms\n&7%now%\n&aTemps de jeu total: &c&l%Convert2Chiffre(floor({cw.played_time_minute::%loop-player%}/60))%:%Convert2Chiffre(mod({cw.played_time_minute::%loop-player%},60))%" for loop-player
+				set loop-players's tablist header to "{@cite_prefix} {@saison_3}"
+				set loop-players's tablist footer to "&7Joueurs en ligne: &e&l%number of players%%nl%&7TPS: &b&l%{_tps}%%nl%&7Ping: &e%ping of loop-player%ms%nl%&7%{_time}%%nl%&aTemps de jeu restant : &6&l%Convert2Chiffre(floor((720-{cw.played_time_today::%loop-player%})/60))%:%Convert2Chiffre(mod((720-{cw.played_time_today::%loop-player%}),60))%%nl%&aTemps de jeu total: &c&l%Convert2Chiffre(floor({cw.played_time_minute::%loop-player%}/60))%:%Convert2Chiffre(mod({cw.played_time_minute::%loop-player%},60))%"
+				#if "%region at loop-player%" contains "warzone":
+				#	if "%region at loop-player%" doesn't contain "spawn":
+				#		#remove glowing from loop-player
+				#		apply potion of glowing of tier 1 without particles to loop-player for 1.03 seconds
+
+#every 1 seconds:
+function Every1Second():
+	set {cw.last_second} to now
+	if difference between {cw.last_minute} and now >= 1 minute:
+		Every1Minute()
+	if {cw.cite_status} is "run":
+		set {cw.time_diff} to difference between now and {cw.start_timestamp}
+		if {cw.time_diff} is between 1 minute and 23 minutes:
+			console command "/worldborder set 900 180"
+		else if {cw.time_diff} is between 26 minute and 165 minutes:
+			console command "/worldborder set 2500 900"
+		loop {cw.unstuck_delay::*}:
+			remove 1 from {cw.unstuck_delay::%loop-index%}
+			if {cw.unstuck_delay::%loop-index%} <= 0:
+				delete {cw.unstuck_delay::%loop-index%}
+				set {_p} to loop-index parsed as player
+				send title "&2&lDéblocage !" with subtitle "&6Ne paniquez pas..." to {_p} for 1.5 seconds with fade in 0.25 seconds and fade out 0.25 seconds
+				apply resistance of tier 200 without particles to {_p} for 8 seconds
+				set {_loc} to location of {_p}
+				add 70 to y coordinate of {_loc}
+				teleport {_p} to {_loc}
+			else:
+				send title "&aDéblocage dans" with subtitle "&6&l%{cw.unstuck_delay::%loop-index%}% &6seconde(s)..." to loop-index parsed as player for 0.5 seconds with fade in 0.25 seconds and fade out 0.25 seconds
+		loop {cw.regeneration_delay::*}:
+			remove 1 from {cw.regeneration_delay::%loop-index%}
+			if {cw.regeneration_delay::%loop-index%} <= 0:
+				send action bar "&6Régénération &aactivée!" to loop-index parsed as player
+				delete {cw.regeneration_delay::%loop-index%}
+			else:
+				send action bar "&6Régénération dans &c&l%NextColor({cw.regeneration_delay::%loop-index%}, 105,1,1, {cw.regeneration_delay::%loop-index%}, -7, true)% &cseconde(s)" to loop-index parsed as player
+		loop {cw.combat.time_left::*}:
+			remove 1 from {cw.combat.time_left::%loop-index%}
+			if {cw.combat.time_left::%loop-index%} <= 0:
+				send "&5[{@cite_prefix}&5] &6Vous n'êtes plus en combat." to loop-index parsed as player
+				delete {cw.combat.time_left::%loop-index%}
+			else:
+				send action bar "&6En combat pendant %NextColor({cw.combat.time_left::%loop-index%}, 105,1,1, {cw.combat.time_left::%loop-index%}, -3.5, true)% &cseconde(s)" to loop-index parsed as player
+		loop {cw.region_pass_delay::*}:
+			remove 1 from {cw.region_pass_delay::%loop-index%}
+			if {cw.region_pass_delay::%loop-index%} <= 0:
+				set {cw.region_pass_status::%loop-index%} to true
+				send title "" with subtitle "&a&lPassage autorisé!" to loop-index parsed as player for 0.5 seconds
+			else:
+				send title "&aVeuillez patienter" with subtitle "%NextColor({cw.region_pass_delay::%loop-index%}, 100,1,1, {cw.region_pass_delay::%loop-index%}, -15, true)% &6seconde(s)..." to loop-index parsed as player for 0.5 seconds with fade in 0.25 seconds and fade out 0.25 seconds
+		if {cw.chest_bonus.location::1} is set:
+			loop 3 times:
+				if {cw.chest_bonus.player_click::%loop-number%} is set:
+					if difference between {cw.chest_bonus.last_time_click::%loop-number%} and now > 1 second:
+						broadcast "&5[{@cite_prefix}&5] &c&lCoffre Bonus: &c&l%{cw.chest_bonus.player_click::%loop-number%}%&6 a arrêté de crocheter le coffre &c&ln°%loop-number%."
+						delete {cw.chest_bonus.last_time_click::%loop-number%}
+						delete {cw.chest_bonus.player_click::%loop-number%}
+				if {cw.chest_bonus.player_open::%loop-number%} is not set:
+					loop 20 times:
+						play 30 flame on {cw.chest_bonus.location::%loop-number-1%} in range of 100
+						wait 1 tick
+		loop {cw.capture.attack_load_time::*}:
+			remove 1 from {cw.capture.attack_load_time::%loop-index%}
+			if {cw.capture.attack_load_time::%loop-index%} = 300:
+				send title "" with subtitle "&c&l5 minutes restantes" to {cw.capture.attacker::%loop-index%} for 2 seconds with fade in 0.1 seconds and fade out 5 seconds
+				send colored "&5[{@cite_prefix}&5] &7[&5&lCapture&7] &6Vous devez vous rendre au point %{cw.capture.name::%loop-index%}% &6pour le captrurer dans 5 minutes !" to {cw.capture.attacker::%loop-index%}
+				PingSound({cw.capture.attacker::%loop-index%})
+			else if {cw.capture.attack_load_time::%loop-index%} = 120:
+				send title "" with subtitle "&c&l2 minutes restantes" to {cw.capture.attacker::%loop-index%} for 2 seconds with fade in 0.1 seconds and fade out 5 seconds
+				send colored "&5[{@cite_prefix}&5] &7[&5&lCapture&7] &6Vous devez vous rendre au point %{cw.capture.name::%loop-index%}% &6pour le captrurer dans 2 minutes !" to {cw.capture.attacker::%loop-index%}
+				PingSound({cw.capture.attacker::%loop-index%})
+			else if {cw.capture.attack_load_time::%loop-index%} = 30:
+				send title "" with subtitle "&c&l30 secondes restantes" to {cw.capture.attacker::%loop-index%} for 2 seconds with fade in 0.1 seconds and fade out 5 seconds
+				send colored "&5[{@cite_prefix}&5] &7[&5&lCapture&7] &6Vous devez vous rendre au point %{cw.capture.name::%loop-index%}% &6pour le captrurer dans 30 secondes !" to {cw.capture.attacker::%loop-index%}
+				PingSound({cw.capture.attacker::%loop-index%})
+			if {cw.capture.attack_load_time::%loop-index%} > 0:
+				RefreshCaptureDisplays(loop-index parsed as integer)
+				send action bar "&c&lCapture du point %{cw.capture.name::%loop-index%}% &6en chargement pendant %GetTimeText({cw.capture.attack_load_time::%loop-index%})% &a(%NextColor((900-{cw.capture.attack_load_time::%loop-index%})/9, 100,0.75,1, (900-{cw.capture.attack_load_time::%loop-index%})/9, -1, true)%%%&a)" to {cw.equipe.player_list::%{cw.equipe.team_player::%{cw.capture.attacker::%loop-index%}%}%::*}
+				send action bar "&c&lPoint de capture %{cw.capture.name::%loop-index%}% &c&lattaqué ! &bEn chargement pendant %GetTimeText({cw.capture.attack_load_time::%loop-index%})% &a(%NextColor((900-{cw.capture.attack_load_time::%loop-index%})/9, 100,0.75,1, (900-{cw.capture.attack_load_time::%loop-index%})/9, -1, true)%%%&a)" to {cw.equipe.player_list::%{cw.capture.owned::%loop-index%}%::*}
+			else if {cw.capture.attack_load_time::%loop-index%} = 0:
+				if "%region at {cw.capture.attacker::%loop-index%}%" contains "point_%loop-index%":
+					broadcast "&5[{@cite_prefix}&5] &7[&5&lCapture&7] &cChargement de la capture du point %{cw.capture.name::%loop-index%}% &cterminé ! &6%display name of {cw.capture.attacker::%loop-index%}% &6est en train de capturer le point %{cw.capture.name::%loop-index%}%!"
+					StartCapture(loop-index parsed as integer)
+				else:
+					broadcast "&5[{@cite_prefix}&5] &7[&5&lCapture&7] &cChargement de la capture du point %{cw.capture.name::%loop-index%}% &cterminé ! &6La capture de %display name of {cw.capture.attacker::%loop-index%}% &6commencera d'ici &c5 minutes."
+					send title "&a&lTerminé !" with subtitle "&c&lAllez sur le point de capture !" to {cw.capture.attacker::%loop-index%} for 2 seconds with fade in 0.1 seconds and fade out 5 seconds
+					send colored "&5[{@cite_prefix}&5] &7[&5&lCapture&7] &6Le chargement de la capture est terminé. &c&lAllez sur le point de capture %{cw.capture.name::%loop-index%}% &c&lpour commencer la capture !" to {cw.capture.attacker::%loop-index%}
+			else if {cw.capture.attack_load_time::%loop-index%} > -300:
+				send action bar "&4&lALLEZ SUR LE POINT DE CAPTURE %{cw.capture.name::%loop-index%}% &3avant %GetTimeText({cw.capture.attack_load_time::%loop-index%}+300)%" to {cw.capture.attacker::%loop-index%}
+				send action bar "&c&lPoint de capture %{cw.capture.name::%loop-index%}% &c&lattaqué ! &bDébut de capture d'ici %GetTimeText({cw.capture.attack_load_time::%loop-index%}+300)%" to {cw.equipe.player_list::%{cw.capture.owned::%loop-index%}%::*}
+				RefreshCaptureDisplays(loop-index parsed as integer)
+				play sound "entity.arrow.hit_player" in hostile mobs category at volume 0.03 at pitch 0.5 to {cw.capture.attacker::%loop-index%}
+				wait 3 ticks
+				play sound "entity.arrow.hit_player" in hostile mobs category at volume 0.03 at pitch 1 to {cw.capture.attacker::%loop-index%}
+				wait 3 ticks
+				play sound "entity.arrow.hit_player" in hostile mobs category at volume 0.03 at pitch 1.5 to {cw.capture.attacker::%loop-index%}
+				wait 3 ticks
+				play sound "entity.arrow.hit_player" in hostile mobs category at volume 0.03 at pitch 2 to {cw.capture.attacker::%loop-index%}
+			else:
+				console command "/advancement grant %{cw.capture.attacker::%loop-index%}% only cite:fail_capture_too_long"
+				EchecCapture(loop-index parsed as integer, "il n'est pas allé sur le point à temps.")
+		loop {cw.capture.capture_time_left::*}:
+			if "%region at {cw.capture.attacker::%loop-index%}%" contains "point_%loop-index%":
+				remove 1 from {cw.capture.capture_time_left::%loop-index%}
+				if {cw.capture.capture_time_left::%loop-index%} < 0:
+					SuccesCapture(loop-index parsed as integer)
+				else:
+					set {_percent} to 100-({cw.capture.capture_time_left::%loop-index%}/120)*100
+					set {_nbpourcent} to round {_percent}
+					set {_bar} to "||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||"
+					set {_final_bar_first} to part of {_bar} from character 1 to character {_nbpourcent}
+					set {_final_bar_end} to part of {_bar} from character 1 to character 100-{_nbpourcent}
+					set {_final_bar} to "%NextColor({_final_bar_first}, 0, 1, 1, {_nbpourcent}, 1, true)%<##0070b5>&l%{_final_bar_end}%"
+					if {_final_bar_end} and {_final_bar} is set:
+						send action bar "&cCapture en cours... <##000596>[%{_final_bar}%<##000596>] &6%GetTimeText({cw.capture.capture_time_left::%loop-index%})% restant..." to {cw.equipe.player_list::%{cw.equipe.team_player::%{cw.capture.attacker::%loop-index%}%}%::*}
+					send title "" with subtitle "%NextColor({_percent}, 110,0.6,1, {_percent}, -0.916, true)%%%" to {cw.capture.attacker::%loop-index%} for 0.5 seconds with fade in 0.25 seconds and fade out 0.25 seconds
+					send action bar "&c&lPoint de capture %{cw.capture.name::%loop-index%}% &c&lattaqué par &6%{cw.capture.attacker::%loop-index%}% ! &4Capture en cours! &6%GetTimeText({cw.capture.capture_time_left::%loop-index%})% restant..." to {cw.equipe.player_list::%{cw.capture.owned::%loop-index%}%::*}
+					play sound "block.ancient_debris.break" in hostile mobs category at volume 100 at pitch ({_percent}/66)+0.5 to {cw.capture.attacker::%loop-index%}
+					RefreshCaptureDisplays(loop-index parsed as integer)
+			else:
+				add 5 to {cw.capture.capture_time_left::%loop-index%}
+				if {cw.capture.capture_time_left::%loop-index%} > 145:
+					EchecCapture(loop-index parsed as integer, "il est sorti trop longtemps du point de capture.")
+				else:
+					set {_percent} to 100-({cw.capture.capture_time_left::%loop-index%}/120)*100
+					send title "%NextColor({_percent}, 110,0.6,1, {_percent}, -0.916, true)%%%" with subtitle "&c&lRetournez sur le point !" to {cw.capture.attacker::%loop-index%} for 0.5 seconds with fade in 0.25 seconds and fade out 0.25 seconds
+					send action bar "&c&lRetournez sur le point d'ici &d&l%round (145-{cw.capture.capture_time_left::%loop-index%})/5% &c&lsecondes ou la capture échoura" to {cw.capture.attacker::%loop-index%}
+					set {_pitch} to (({_percent}+15)/50)+0.5
+					play sound "block.beacon.deactivate" in hostile mobs category at volume 100 at pitch {_pitch} to {cw.capture.attacker::%loop-index%}
+					RefreshCaptureDisplays(loop-index parsed as integer)
+		loop all players:
+			if {cw.stop_lag} <= 1:
+				if {cw.time_diff} > 30 minutes:
+					if {cw.chest_bonus.location::1} is not set:
+						set {_added} to false
+						if "%region at loop-player%" contains "warzone":
+							if "%region at loop-player%" doesn't contain "spawn":
+								if world of loop-player is "cite":
+									set {_distance} to 100
+								else if world of loop-player is "cite_nether":
+									set {_distance} to 50
+								else if world of loop-player is "cite_the_end":
+									set {_distance} to 60
+								loop {cw.location.door::*}:
+									if distance between loop-player and loop-value-2 <= {_distance}:
+										set {_added} to true
+										add 1 to {cw.near_door_time::%loop-player%}
+										if {cw.near_door_time::%loop-player%} >= 15:
+											send action bar "&6Éloignez-vous de la porte ou rentrez dans le &d&lSpawn &6d'ici &c&l%NextColor(60-{cw.near_door_time::%loop-player%}, 0,1,1, 60-{cw.near_door_time::%loop-player%}, 2.44, true)% &csecondes(s)" to loop-player
+										if {cw.near_door_time::%loop-player%} >= 35:
+											if "%region at loop-player%" doesn't contain "porte_entree":
+												send title "" with subtitle "&c&l%NextColor(60-{cw.near_door_time::%loop-player%}, 0,1,1, 60-{cw.near_door_time::%loop-player%}, 2.44, true)% &csecondes(s) restantes" to loop-player for 0.6 seconds with fade in 0.2 seconds and fade out 0.2 seconds
+											send action bar "&6Éloignez-vous de la porte ou rentrez dans le &d&lSpawn &6ou vous prendrez des &cdégâts&6 !" to loop-player
+										if {cw.near_door_time::%loop-player%} >= 60:
+											if "%region at loop-player%" doesn't contain "porte_entree":
+												send title "" with subtitle "&c&lMALUS DEGÂTS &dÉloignez-vous" to loop-player for 0.6 seconds with fade in 0.2 seconds and fade out 0.2 seconds
+											send action bar "&6Vous prenez des dégâts car vous êtes trop proche de la porte ! &c&lÉloignez-vous de la porte !" to loop-player
+											console command "/advancement grant %loop-player% only cite:door_malus"
+											damage loop-player by 0.25
+											if health of loop-player <= 1:
+												wait 4 seconds
+												if loop-player is alive:
+													if health of loop-player <= 1:
+														console command "/advancement grant %loop-player% only cite:door_near_die"
+										stop loop
+						if {_added} is false:
+							if {cw.near_door_time::%loop-player%} > 0:
+								remove 2 from {cw.near_door_time::%loop-player%}
+
+
+function Every2Seconds():
+	set {cw.last_2_second} to now
+	if {cw.cite_status} is "run":
+		loop all players:
+			if {cw.stop_lag} <= 0:
+				if tool of loop-player is compass:
+					console command "/advancement grant %loop-player% only cite:use_compass"
+					if line 2 of lore of tool of loop-player contains "Spawn":
+						if world of loop-player is "cite":
+							send action bar "&6Direction: &d&lSpawn     &6Distance: %NextColor(distance between loop-player and {cw.location.spawn}, 0, 1, 1, (distance between loop-player and {cw.location.spawn}), 0.067, true)% &bblocs" to loop-player
+						else if world of loop-player is "cite_nether":
+							send action bar "&6Direction: &d&lSpawn Nether     &6Distance: %NextColor(distance between loop-player and {cw.location.spawn_nether}, 0, 1, 1, (distance between loop-player and {cw.location.spawn_nether}), 0.067, true)% &bblocs" to loop-player
+						else if world of loop-player is "cite_the_end":
+							send action bar "&6Direction: &d&lSpawn End     &6Distance: %NextColor(distance between loop-player and {cw.location.spawn_end}, 0, 1, 1, (distance between loop-player and {cw.location.spawn_end}), 0.067, true)% &bblocs" to loop-player
+					if line 2 of lore of tool of loop-player contains "Coffre bonus":
+						if {cw.chest_bonus.player_open::%line 3 of lore of tool of loop-player%} is set:
+							set {_text} to "&4&lTROUVÉ"
+						else:
+							set {_text} to ""
+						if {cw.chest_bonus.location::1} is not set:
+							set line 2 of lore of tool of loop-player to "&6Direction: &d&lSpawn"
+							if world of loop-player is "cite":
+								set compass target of loop-player to {cw.location.spawn}
+							else if world of loop-player is "cite_nether":
+								set compass target of loop-player to {cw.location.spawn_nether}
+							else if world of loop-player is "cite_the_end":
+								set compass target of loop-player to {cw.location.spawn_end}
+						else:
+							send action bar "&6Direction: &c&lCoffre bonus n°%line 3 of lore of tool of loop-player%     &6Distance: %NextColor(distance between loop-player and {cw.chest_bonus.location::%line 3 of lore of tool of loop-player%}, 105, 1, 1, distance between loop-player and {cw.chest_bonus.location::%line 3 of lore of tool of loop-player%}, -105/distance between {cw.location.spawn} and {cw.chest_bonus.location::%line 3 of lore of tool of loop-player%}, true)% &bblocs   %{_text}%" to loop-player
+					else:
+						set line 2 of lore of tool of loop-player to "&6Direction: &d&lSpawn"
+						if world of loop-player is "cite":
+							set compass target of loop-player to {cw.location.spawn}
+						else if world of loop-player is "cite_nether":
+							set compass target of loop-player to {cw.location.spawn_nether}
+						else if world of loop-player is "cite_the_end":
+							set compass target of loop-player to {cw.location.spawn_end}
+	else if {cw.cite_status} is "open":
+		send action bar "&c&lDébut des explications à 14h30..." to all players
+	else if {cw.cite_status} is "starting":
+		if {cw.time_before_start} is set:
+			remove 1 from {cw.time_before_start}
+			set {_text} to "&l%{cw.time_before_start}%"
+			send action bar "&4&lDémarrage du jeu dans %NextColor({_text}, 120, 1, 1, 60-{cw.time_before_start}, -1.41)% &4&lsecondes..." to all players
+			if {cw.time_before_start} <= 10:
+				delete {cw.time_before_start}
+
+every 15 seconds:
+	loop all players:
+		if number of emeralds in loop-player's inventory >= 1000:
+			console command "/advancement grant %loop-player% only cite:1000_emeralds"
+		if number of emeralds in loop-player's inventory >= 2304:
+			console command "/advancement grant %loop-player% only cite:full_emerald_inventory"
+		if distance between loop-player and {cw.location.spawn} >= 7050:
+			console command "/advancement grant %loop-player% only cite:find_border"
+
+		set {_glow} to false
+		if "%region at loop-player%" contains "warzone":
+			if "%region at loop-player%" doesn't contain "spawn":
+				if {cw.is_invisible::%loop-player%} is not set:
+					set glowing of loop-player to on
+					set {_glow} to true
+		if {_glow} is false:
+			set glowing of loop-player to off
+
+		if number of emerald in loop-player's inventory is between 48 and 96:
+			apply slowness of tier 1 without particles to loop-player for 15 seconds
+		else if number of emerald in loop-player's inventory is between 97 and 160:
+			apply slowness of tier 2 without particles to loop-player for 15 seconds
+		else if number of emerald in loop-player's inventory is between 161 and 300:
+			apply slowness of tier 3 without particles to loop-player for 15 seconds
+		else if number of emerald in loop-player's inventory > 300:
+			apply slowness of tier 4 without particles to loop-player for 15 seconds
+
+#every 1 minutes:
+function Every1Minute():
+	set {cw.last_minute} to now
+	#send "START EVERY MINUTE" to console
+	if {cw.cite_status} is "run":
+		loop {cw.kill.boost::*}:
+			remove 1 from {cw.kill.boost::%loop-index%}
+			if {cw.kill.boost::%loop-index%} <= 0:
+				send "&5[{@cite_prefix}&5] &6Votre boost d'émeraude en cas de kill &cest terminé !" to loop-index parsed as player
+				delete {cw.kill.boost::%loop-index%}
+			else:
+				send action bar "&6Boost d'émeraude kill &6&lx2 &6pendant &c&l%{cw.kill.boost::%loop-index%}% minute(s)" to loop-index parsed as player
+		if {cw.chest_bonus.time_left} is set:
+			remove 1 from {cw.chest_bonus.time_left}
+			if {cw.chest_bonus.time_left} is 5:
+				broadcast "&5[{@cite_prefix}&5] &c&lCoffre Bonus: &63 coffres bonus apparaîtront dans &c&l5 minutes&6."
+			if {cw.chest_bonus.time_left} is 3:
+				broadcast "&5[{@cite_prefix}&5] &c&lCoffre Bonus: &63 coffres bonus apparaîtront dans &c&l3 minutes&6."
+			if {cw.chest_bonus.time_left} <= 0:
+				delete {cw.chest_bonus.time_left}
+		if "%now%" contains "08:00:":
+			delete {cw.played_time_today::*}
+		else if "%now%" contains "10:00:", "15:00:" or "20:00:":
+			ApplyRandomReduction()
+		else if "%now%" contains "12:30:", "17:30:" or "22:30:":
+			RemoveRandomReduction()
+		if {cw.time_diff} > 150 minutes:
+			if {cw.chest_bonus.time_until_next} is set:
+				remove 1 from {cw.chest_bonus.time_until_next}
+				if {cw.chest_bonus.time_until_next} <= 0:
+					set {_checkspawn} to true
+			if "%now%" contains "15:50:":
+				set {_checkspawn} to true
+			if {_checkspawn}:
+				if number of players >= 7:
+					#CHECK EQUIPES
+					loop all players:
+						set {_teams_co::%{cw.equipe.team_player::%loop-player%}%} to true
+					if size of {_teams_co::*} >= 3:
+						GenerateChest()
+					else:
+						broadcast "&5[{@cite_prefix}&5] &c&lIl n'y a pas suffisamment d'équipes connectées pour faire apparître un coffre bonus."
+						set {cw.chest_bonus.time_until_next} to random integer between 80 and 390
+				else:
+					broadcast "&5[{@cite_prefix}&5] &c&lIl n'y a pas suffisamment de joueurs connectés pour faire apparître un coffre bonus."
+					set {cw.chest_bonus.time_until_next} to random integer between 80 and 390
+		if {cw.time_diff} < 10 minutes:
+			apply speed of tier 3 without particles to all players for 61 seconds
+		else if {cw.time_diff} < 20 minutes:
+			remove speed from all players
+			apply resistance of tier 2 without particles to all players for 61 seconds
+			apply speed of tier 2 without particles to all players for 61 seconds
+		else if {cw.time_diff} < 30 minutes:
+			remove speed from all players
+			apply resistance of tier 1 without particles to all players for 61 seconds
+			apply speed of tier 1 without particles to all players for 61 seconds
+		if {cw.time_diff} is between 180 minutes and 2 days:
+			console command "/worldborder set 10000 4000"
+		if {cw.time_diff} is between 10 minutes and 11 minutes:
+			broadcast "&5[{@cite_prefix}&5] &d&l10 minutes de jeu. &6&lVous possédez désormais l'effet résistance 2 et rapidité 2 pendant 10 minutes."
+		else if {cw.time_diff} is between 20 minutes and 21 minutes:
+			broadcast "&5[{@cite_prefix}&5] &d&l20 minutes de jeu. &6&lVous possédez désormais l'effet résistance 1 et rapidité 1 pendant 10 minutes.%nl%&c&lAttention: &4&lPvP actif &6&ldans 5 minutes !"
+		else if {cw.time_diff} is between 26 minutes and 27 minutes:
+			broadcast "&5[{@cite_prefix}&5] &6&lLa bordure a atteint la &b&lZone libre&6&l! Elle prendra &c&l2 heures et 35 minutes &6&6pour la parcourir.%nl%&c&lAttention: &4&lPvP actif !"
+		else if {cw.time_diff} is between 28 minutes and 29 minutes:
+			broadcast "&5[{@cite_prefix}&5] &c&lAttention: &4&lPvP actif &6&ldans 2 minutes !"
+		else if {cw.time_diff} is between 30 minutes and 31 minutes:
+			enable pvp in world "cite"
+			send title "&c&lPVP ACTIF" to all players for 2 seconds with fade in 1 seconds and fade out 1 seconds
+			play sound "entity.ender_dragon.ambient" in hostile mobs category at volume 1 at pitch 0.5 to all players
+			broadcast "&5[{@cite_prefix}&5] &d&l30 minutes de jeu.%nl%&c&lAttention: &4&lLe PvP est désormais actif !"
+		else if {cw.time_diff} is between 35 minutes and 36 minutes:
+			GenerateChest()
+		else if {cw.time_diff} is between 70 minutes and 71 minutes:
+			GenerateChest()
+		else if {cw.time_diff} is between 105 minutes and 106 minutes:
+			broadcast "&5[{@cite_prefix}&5] &c&lAttention: &6&lLe portail vers le monde Nether sera ouvert dans &4&l15 minutes !"
+		else if {cw.time_diff} is between 115 minutes and 116 minutes:
+			broadcast "&5[{@cite_prefix}&5] &c&lAttention: &6&lLe portail vers le monde Nether sera ouvert dans &4&l5 minutes !"
+		else if {cw.time_diff} is between 120 minutes and 121 minutes:
+			broadcast "&5[{@cite_prefix}&5] &d&l2 heures de jeu. &6&lLe portail vers le monde Nether est désormais ouvert !"
+		else if {cw.time_diff} is between 130 minutes and 131 minutes:
+			GenerateChest()
+		else if {cw.time_diff} is between 150 minutes and 151 minutes:
+			console command "/difficulty normal"
+			broadcast "&5[{@cite_prefix}&5] &d&l2 heures 30 minutes de jeu. &6&lLa difficulté du monde est passée en &c&lNormale."
+		else if {cw.time_diff} is between 180 minutes and 181 minutes:
+			broadcast "&5[{@cite_prefix}&5] &6&lLa bordure a atteint la &e&lZone d'exploration&6&l! Elle prendra &c&l2 jours &6&6pour atteindre sa taille finale."
+		else if {cw.time_diff} is between 200 minutes and 201 minutes:
+			broadcast "&5[{@cite_prefix}&5] &6&lLes points de capture pourront être attaqués dans &c&l10 minutes."
+		else if {cw.time_diff} is between 210 minutes and 211 minutes:
+			broadcast "&5[{@cite_prefix}&5] &d&l3 heures 30 de jeu. &6&lLes points de capture sont désormais attaquables par n'importe quelle équipe."
+		else if {cw.time_diff} is between 480 minutes and 481 minutes:
+			console command "/difficulty hard"
+			broadcast "&5[{@cite_prefix}&5] &d&l8 heures de jeu. &6&lLa difficulté du monde est passée en &c&lDifficile."
+		else if {cw.time_diff} is between 1440 minutes and 1441 minutes:
+			broadcast "&5[{@cite_prefix}&5] &c&lAttention: &6&lLe portail vers le monde End sera ouvert dans &4&l1 heure !"
+		else if {cw.time_diff} is between 1485 minutes and 1486 minutes:
+			broadcast "&5[{@cite_prefix}&5] &c&lAttention: &6&lLe portail vers le monde End sera ouvert dans &4&l15 minutes !"
+		else if {cw.time_diff} is between 1495 minutes and 1496 minutes:
+			broadcast "&5[{@cite_prefix}&5] &c&lAttention: &6&lLe portail vers le monde End sera ouvert dans &4&l5 minutes !"
+		else if {cw.time_diff} is between 1500 minutes and 1501 minutes:
+			broadcast "&5[{@cite_prefix}&5] &d&l1 jour jeu. &6&lLe portail vers le monde End est désormais ouvert !"
+		else if {cw.time_diff} is between 2160 minutes and 2161 minutes:
+			broadcast "&5[{@cite_prefix}&5] &d&l1 jour et demi de jeu. &6&lLes pillages sont désormais autorisés !"
+		else if {cw.time_diff} is between 2880 minutes and 2881 minutes:
+			broadcast "&5[{@cite_prefix}&5] &d&l1 jours de jeu. &6&lLa bordure a atteint sa taille finale de &c&l10000 par 10000 blocs&6&l."
+		else if {cw.time_diff} is between 7200 minutes and 7201 minutes:
+			broadcast "&5[{@cite_prefix}&5] &d&l5 jours de jeu. &6&lLe classement ne sera plus actualisé à partir de maintenant."
+
+		loop {cw.capture.time_until_decay::*}:
+			remove 1 from {cw.capture.time_until_decay::%loop-index%}
+			if {cw.capture.time_until_decay::%loop-index%} <= 0:
+				broadcast colored "&5[{@cite_prefix}&5] &7[&5&lCapture&7] &6Le point de capture %{cw.capture.name::%loop-index%}% &6redevient neutre &e(non possédé par une équipe) après 8 heures de possession par l'équipe %{cw.equipe.color::%{cw.capture.owned::%loop-index%}%}%%{cw.equipe.name::%{cw.capture.owned::%loop-index%}%}%"
+				loop {cw.equipe.player_list::%{cw.capture.owned::%loop-index%}%::*}:
+					console command "/advancement grant %loop-value-2% only cite:control_point_8h"
+				delete {cw.capture.owned::%loop-index%}
+				delete {cw.capture.time_until_decay::%loop-index%}
+				delete {cw.capture.time_until_pay::%loop-index%}
+				set block at {cw.capture.color_block::%loop-index%} to air
+				RefreshCaptureDisplays(loop-index parsed as integer)
+		loop {cw.capture.time_until_pay::*}:
+			remove 1 from {cw.capture.time_until_pay::%loop-index%}
+			if {cw.capture.time_until_pay::%loop-index%} <= 0:
+				set {cw.capture.time_until_pay::%loop-index%} to 59
+				set {_connected} to false
+				loop {cw.equipe.player_list::%{cw.capture.owned::%loop-index%}%::*}:
+					if loop-value-2 is online:
+						set {_connected} to true
+				if {_connected}:
+					add {cw.capture.emerald_per_hour::%loop-index%} to {cw.capture.stored_emeralds::%loop-index%}
+					send colored "&5[{@cite_prefix}&5] &7[&5&lCapture&7] &6Le point de capture %{cw.capture.name::%loop-index%}%&6 vient de générer &c&l%{cw.capture.emerald_per_hour::%loop-index%}% &cémeraudes&6. Cliquez sur la balise du point de capture pour les récupérer." to {cw.equipe.player_list::%{cw.capture.owned::%loop-index%}%::*}
+					remove 5 from {cw.capture.emerald_per_hour::%loop-index%}
+				if {cw.capture.emerald_per_hour::%loop-index%} <= 32:
+					set {cw.capture.emerald_per_hour::%loop-index%} to 32
+					loop {cw.equipe.player_list::%{cw.capture.owned::%loop-index%}%::*}:
+						console command "/advancement grant %loop-value-2% only cite:point_min_production"
+				if {cw.capture.time_until_decay::%loop-index%} <= 60:
+					send colored "&5[{@cite_prefix}&5] &7[&5&lCapture&7] &6Votre point de capture %{cw.capture.name::%loop-index%}%&6 va redevenir neutre &e(non possédé par une équipe) &6dans moins de 30 minutes car vous le possédez depuis près de 8 heures. &6Pensez à récupérer les &c&l%{cw.capture.stored_emeralds::%loop-index%}% &cémeraudes&6 stockés avant 30 minutes !" to {cw.equipe.player_list::%{cw.capture.owned::%loop-index%}%::*}
+			RefreshCaptureDisplays(loop-index parsed as integer)
+		loop all players:
+			if {cw.time_diff} > 30 minutes:
+				if "%region at loop-player%" contains "spawn":
+					delete {cw.spawn_cooldown::%loop-player%}
+					add 1 to {cw.in_spawn_time::%loop-player%}
+					if {cw.in_spawn_time::%loop-player%} >= 15:
+						set {_pass} to true
+						loop {cw.equipe.player_list::%{cw.equipe.team_player::%loop-player%}%::*}:
+							if {cw.in_spawn_time::%loop-value-2%} >= 15:
+								set {_pass} to true
+							else:
+								set {_pass} to false
+						if {_pass} is true:
+							console command "/advancement grant %loop-player-1% only cite:stay_spawn_team"
+					if {cw.in_spawn_time::%loop-player%} = 24:
+						kick loop-player due to "&cVous êtes restés dans le spawn trop longtemps !%nl%&eAfin de ne pas perdre trop d'émeraudes, vous avez été éjecté du serveur%nl%&eVous pouvez vous reconnecter.%nl%Sortez du spawn !"
+					else if {cw.in_spawn_time::%loop-player%} >= 20:
+						if {cw.in_spawn_time::%loop-player%} is 22:
+							console command "/advancement grant %loop-player% only cite:spawn_22m"
+
+						set {_malus} to ({cw.in_spawn_time::%loop-player%}-19)*5
+						send title "<##ff0000>-%{_malus}% émeraudes" with subtitle "&6Sortez du &d&lSpawn &6!" to loop-player for 1 seconds with fade in 1 seconds and fade out 5 seconds
+						send "&5[{@cite_prefix}&5] &6Vous perdez &c%{_malus}% &cémeraudes (Malus) &6car vous êtes restés dans le spawn trop longtemps ! Sortez du &d&lSpawn !" to loop-player
+						remove {_malus} from {cw.emeralds.player::%loop-player%}
+						remove {_malus} from {cw.emeralds.equipe::%{cw.equipe.team_player::%loop-player%}%}
+						CheckAdvancement(loop-player)
+						UpdateClassement()
+					else:
+						if {cw.in_spawn_time::%loop-player%} >= 7:
+							send action bar "&6Sortez du &d&lSpawn &6d'ici &c&l%NextColor(20-{cw.in_spawn_time::%loop-player%}, 100,1,1, 20-{cw.in_spawn_time::%loop-player%}, -10, true)% &cminutes(s)" to loop-player
+						if {cw.in_spawn_time::%loop-player%} >= 17:
+							send title "&c&l%NextColor(20-{cw.in_spawn_time::%loop-player%}, 50,1,1, 20-{cw.in_spawn_time::%loop-player%}, -10, true)% &cminutes(s)" with subtitle "&6restantes dans le &d&lSpawn !" to loop-player for 3 seconds with fade in 1 seconds and fade out 8 seconds
+							send "&5[{@cite_prefix}&5] &6Il vous reste &c%20-{cw.in_spawn_time::%loop-player%}% &cminute(s) &6pour sortir du spawn avant de recevoir un malus !" to loop-player
+				else:
+					add 1 to {cw.spawn_cooldown::%loop-player%}
+					if {cw.spawn_cooldown::%loop-player%} > 3:
+						if {cw.in_spawn_time::%loop-player%} > 0:
+							remove 1 from {cw.in_spawn_time::%loop-player%}
+						else:
+							delete {cw.in_spawn_time::%loop-player%}
+						if {cw.in_spawn_time::%loop-player%} is 1:
+							send "&5[{@cite_prefix}&5] &6Votre chronomètre de temps passé au spawn a été réinitialisé, vous pouvez désormais retourner au spawn." to loop-player
+						if {cw.spawn_cooldown::%loop-player%} >= 780:
+							console command "/advancement grant %loop-player% only cite:out_spawn_13h"
+						else if {cw.spawn_cooldown::%loop-player%} >= 360:
+							console command "/advancement grant %loop-player% only cite:out_spawn_6h"
+			add 1 to {cw.played_time_minute::%loop-player%}
+			add 1 to {cw.played_time_today::%loop-player%}
+			if {cw.played_time_today::%loop-player%} = 705:
+				send title "&e&l15 minutes" with subtitle "&6restantes de temps de jeu !" to loop-player for 1.5 seconds with fade in 1 seconds and fade out 5 seconds
+			else if {cw.played_time_today::%loop-player%} = 710:
+				send title "&c&l10 minutes" with subtitle "&6restantes de temps de jeu !" to loop-player for 1.5 seconds with fade in 1 seconds and fade out 5 seconds
+			else if {cw.played_time_today::%loop-player%} = 715:
+				send title "&4&l5 minutes" with subtitle "&6restantes de temps de jeu !" to loop-player for 1.5 seconds with fade in 1 seconds and fade out 5 seconds
+			else if {cw.played_time_today::%loop-player%} = 719:
+				console command "/advancement grant %loop-player% only cite:day_connexion_12h"
+				send title "&4&l1 minute" with subtitle "&6restante de temps de jeu !" to loop-player for 1.5 seconds with fade in 1 seconds and fade out 5 seconds
+			else if {cw.played_time_today::%loop-player%} >= 720:
+				kick loop-player due to "&c&lTemps de connexion écoulé pour aujourd'hui !%nl%&dRevenez après 8h00 :)%nl%&eBonne nuit !"
+				broadcast "&5[{@cite_prefix}&5] %display name of loop-player% &6&la écoulé son temps de connexion pour aujourd'hui."
+
+	#send "END EVERY MINUTE" to console
+
+every 1 hour:
+	broadcast "&5[{@cite_prefix}&5] &cATTENTION: &6Sauvegarde automatique dans 10 secondes. LAG A VENIR"
+	wait 5 seconds
+	console command "/save-all"
+
+on join:
+	if {cw.played_time_minute::%player%} is not set:
+		set {cw.played_time_minute::%player%} to 0
+	if {cw.emeralds.player::%player%} is not set:
+		set {cw.emeralds.player::%player%} to 0
+	if {cw.emeralds.equipe::%{cw.equipe.team_player::%player%}%} is not set:
+		set {cw.emeralds.equipe::%{cw.equipe.team_player::%player%}%} to 0
+
+on chat:
+	cancel event
+	if {cw.chat.mute_chat} is not set:
+		if {cw.chat.mute::%player%}:
+			send colored "&5[{@cite_prefix}&5] &cVous êtes mute !" to player
+		else:
+			if first character of message is "!":
+				send colored "&7[&8&lÉquipe&7] %display name of player% &r: %part of message from character 2 to character (length of message)%" to {cw.equipe.player_list::%{cw.equipe.team_player::%player%}%::*}
+				send uncolored "&7[&8&lÉquipe&7] %display name of player% &r: %part of message from character 2 to character (length of message)%" to console
+			else:
+				send uncolored "&7[Général] %display name of player% &r: %message%" to console
+				loop all players:
+					if {cw.chat.ignore::%loop-player%::*} doesn't contain player:
+						send colored "&7[Général] %display name of player% &r: %message%" to loop-player
+	else:
+		send "&5[{@cite_prefix}&5] &cLe chat est mute"
+
+command /message <player> <text>:
+	aliases: /m, /msg, /w, /t, /tell
+	trigger:
+		if {cw.chat.mute::%player%}:
+			send colored "&5[{@cite_prefix}&5] &cVous êtes mute !" to player
+		else:
+			if {cw.chat.ignore::%player-arg%::*} doesn't contain player:
+				send colored "&7[&8&lPrivé&7] %display name of player% &6&l--> %display name of player-arg%: &r%arg 2%" to player-arg
+				set {cw.chat.reponse::%player-arg%} to "/message %player%"
+			send colored "&7[&8&lPrivé&7] %display name of player% &6&l--> %display name of player-arg%: &r%arg 2%" to player
+			send uncolored "&7[&8&lPrivé&7] %display name of player% &6&l--> %display name of player-arg%: &r%arg 2%" to console
+			set {cw.chat.reponse::%player%} to "/message %player-arg%"
+
+command /messageteam [<player>] [<text>] <text>:
+	aliases: /mt, /msgt, /tt, /tellt, /tellteam
+	trigger:
+		if {cw.chat.mute::%player%}:
+			send colored "&5[{@cite_prefix}&5] &cVous êtes mute !" to player
+		else:
+			if arg 1 is set:
+				set {_equipe} to {cw.equipe.team_player::%arg 1%}
+				if arg 2 is set:
+					set {_text} to "&7[&8&lPrivé à l'équipe&7] %{cw.equipe.color::%{cw.equipe.team_player::%player%}%}%Équipe %{cw.equipe.name::%{cw.equipe.team_player::%player%}%}% &7(&7%{cw.equipe.color::%{cw.equipe.team_player::%player%}%}%&l%player%&7) &6&l--> %{cw.equipe.color::%{_equipe}%}%Équipe %{cw.equipe.name::%{_equipe}%}%: &r%arg 2% %arg 3%"
+				else:
+					set {_text} to "&7[&8&lPrivé à l'équipe&7] %{cw.equipe.color::%{cw.equipe.team_player::%player%}%}%Équipe %{cw.equipe.name::%{cw.equipe.team_player::%player%}%}% &7(&7%{cw.equipe.color::%{cw.equipe.team_player::%player%}%}%&l%player%&7) &6&l--> %{cw.equipe.color::%{_equipe}%}%Équipe %{cw.equipe.name::%{_equipe}%}%: &r%arg 3%"
+			else:
+				set {_equipe} to arg 2 parsed as integer
+				if {_equipe} is not set:
+					loop {cw.equipe.name::*}:
+						if loop-value contains arg 2:
+							set {_equipe} to loop-index
+				if {_equipe} is not set:
+					send "&5[{@cite_prefix}&5] &cErreur: &4Impossible de trouver une équipe correspondant à &6%arg 2%. &6Essayez d'inscrire le numéro d'équipe, le nom d'équipe, où un de ces joueurs."
+				else:
+					set {_text} to "&7[&8&lPrivé à l'équipe&7] %{cw.equipe.color::%{cw.equipe.team_player::%player%}%}%Équipe %{cw.equipe.name::%{cw.equipe.team_player::%player%}%}% &7(&7%{cw.equipe.color::%{cw.equipe.team_player::%player%}%}%&l%player%&7) &6&l--> %{cw.equipe.color::%{_equipe}%}%Équipe %{cw.equipe.name::%{_equipe}%}%: &r%arg 3%"
+			if {_text} is set:
+				send colored {_text} to {cw.equipe.player_list::%{cw.equipe.team_player::%player%}%::*}
+				send uncolored {_text} to console
+				loop {cw.equipe.player_list::%{_equipe}%::*}:
+					if {cw.chat.ignore::%loop-value%::*} doesn't contain player:
+						send colored {_text} to loop-value
+			if {_equipe} is set:
+				loop {cw.equipe.player_list::%{_equipe}%::*}:
+					set {cw.chat.reponse::%loop-value%} to "/messageteam %player%"
+				loop {cw.equipe.player_list::%{cw.equipe.team_player::%player%}%::*}:
+					set {cw.chat.reponse::%loop-value%} to "/messageteam %{_equipe}%"
+
+command /reponse <text>:
+	aliases: /rep, /r
+	trigger:
+		if {cw.chat.reponse::%player%} is set:
+			player command "%{cw.chat.reponse::%player%}% %arg 1%"
+		else:
+			send "&5[{@cite_prefix}&5] &cVous n'avez personne à qui répondre !"
+
+command /mutechat:
+	permission: admin.mutechat
+	trigger:
+		if {cw.chat.mute_chat}:
+			delete {cw.chat.mute_chat}
+			broadcast "&5[{@cite_prefix}&5] &6Le chat n'est plus mute."
+		else:
+			set {cw.chat.mute_chat} to true
+			broadcast "&5[{@cite_prefix}&5] &6Le chat est mute."
+
+command /mute <player>:
+	permission: admin.mute
+	trigger:
+		if {cw.chat.mute::%player-arg%}:
+			delete {cw.chat.mute::%player-arg%}
+			send colored "&5[{@cite_prefix}&5] &c%display name of player-arg%&6 n'est plus mute."
+			send colored "&5[{@cite_prefix}&5] &cVous n'êtes plus mute !" to player-arg
+		else:
+			set {cw.chat.mute::%player-arg%} to true
+			send colored "&5[{@cite_prefix}&5] &c%display name of player-arg%&6 est mute."
+			send colored "&5[{@cite_prefix}&5] &cVous êtes désormais mute !" to player-arg
+
+command /ignore <player>:
+	aliases : /ignorer, /i
+	trigger:
+		if {cw.chat.ignore::%player%::*} contains player-arg:
+			remove player-arg from {cw.chat.ignore::%player%::*}
+			send colored "&5[{@cite_prefix}&5] &6Vous n'ignorez plus &c%display name of player-arg%&6. Vous verrez désormais ses messages."
+		else:
+			add player-arg to {cw.chat.ignore::%player%::*}
+			send colored "&5[{@cite_prefix}&5] &6Vous ignorez désormais &c%display name of player-arg%&6. Vous ne verrez plus ses messages."
+
+command /bc <text>:
+	aliases: /broadcast
+	permission: admin.broadcast
+	trigger:
+		set {_text} to arg 1
+		replace all "&" with "§" in {_text}
+		broadcast "&5[{@cite_prefix}&5] <##ff0000>&l[ANNONCE] &6%{_text}%"
+
+on damage:
+	if {cw.cite_status} is "open", "pause", "starting" or "prepare":
+		cancel event
+	else:
+		if victim is a player:
+			if {cw.time_diff} < 10 minutes:
+				cancel event
+				stop
+			set {_health} to victim's health*2
+			set score "&7HP" below victim to {_health} for all players
+			if attacker is a player:
+				if {cw.equipe.team_player::%attacker%} is {cw.equipe.team_player::%victim%}:
+					cancel event
+					send action bar "&6Vous ne pouvez pas attaquer votre allié !" to attacker
+				else:
+					if "%region at attacker%" doesn't contain "spawn":
+						set {_continue} to true
+						if world of attacker is "cite":
+							if {cw.chest_bonus.location::1} is set:
+								set {_continue} to false
+						if {cw.capture.attacker::*} contains attacker or victim:
+							set {_continue} to false
+						else if "%region at attacker%" contains "protect_":
+							set {_continue} to false
+						else if "%region at victim%" contains "protect_":
+							set {_continue} to false
+						if {_continue}:
+							if {cw.next_attack::%{cw.equipe.team_player::%attacker%}%::%victim%} is set:
+								if {cw.next_attack::%{cw.equipe.team_player::%attacker%}%::%victim%} > now:
+									cancel event
+									console command "/advancement grant %attacker% only cite:try_attack"
+									send "&5[{@cite_prefix}&5] &cVous ne pouvez pas attaquer &6%victim% &cpendant encore %difference between now and {cw.next_attack::%{cw.equipe.team_player::%attacker%}%::%victim%}% &6, sauf s'il accepte (demande envoyée)" to attacker
+									send "&5[{@cite_prefix}&5] &c%display name of attacker% &cessaye de vous attaquer, mais vous êtes protégé pendant encore %difference between now and {cw.next_attack::%{cw.equipe.team_player::%attacker%}%::%victim%}% &6, sauf si vous acceptez en utilisant <##2997ff>/attack %attacker%" to victim
+									stop
+								else:
+									delete {cw.next_attack::%{cw.equipe.team_player::%attacker%}%::%victim%}
+							else if {cw.next_attack::%{cw.equipe.team_player::%victim%}%::%attacker%} is set:
+								if {cw.next_attack::%{cw.equipe.team_player::%victim%}%::%attacker%} > now:
+									cancel event
+									console command "/advancement grant %attacker% only cite:try_attack"
+									send "&5[{@cite_prefix}&5] &cVous ne pouvez pas attaquer &6%victim% &cpendant encore %difference between now and {cw.next_attack::%{cw.equipe.team_player::%victim%}%::%attacker%}% &6, sauf si vous acceptez l'attaque en utilisant <##2997ff>/attack %victim%" to attacker
+									send "&5[{@cite_prefix}&5] &c%display name of attacker% &cessaye de vous attaquer, mais vous êtes protégé pendant encore %difference between now and {cw.next_attack::%{cw.equipe.team_player::%victim%}%::%attacker%}% &6, sauf s'il autorise l'attaque." to victim
+									stop
+								else:
+									delete {cw.next_attack::%{cw.equipe.team_player::%victim%}%::%attacker%}
+					if "%region at victim%" contains "warzone":
+						if {_continue}:
+							if inventory of attacker is empty:
+								cancel event
+								send action bar "&6Vous ne pouvez pas attaquer tant que votre inventaire est vide." to attacker
+								stop
+							else if inventory of victim is empty:
+								cancel event
+								send action bar "&6Vous ne pouvez pas attaquer cette personne car son inventaire est vide." to attacker
+								stop
+					if {cw.is_invisible::%victim%}:
+						if victim's armor value is 0:
+							set damage to 0.25*damage
+					if {cw.combat.time_left::%victim%} is not set:
+						send "&5[{@cite_prefix}&5] &6&lVous entrez en combat avec &c&l%display name of attacker%" to victim
+						loop {cw.equipe.player_list::%{cw.equipe.team_player::%victim%}%::*}:
+							if loop-value is not victim:
+								send "&5[{@cite_prefix}&5] &c&l%victim% &6entre en combat avec &c%attacker% &6!" to loop-value# parsed as player
+					if {cw.combat.time_left::%attacker%} is not set:
+						send "&5[{@cite_prefix}&5] &6&lVous entrez en combat avec &c&l%display name of victim%" to attacker
+						loop {cw.equipe.player_list::%{cw.equipe.team_player::%attacker%}%::*}:
+							if loop-value is not attacker:
+								send "&5[{@cite_prefix}&5] &c&l%attacker% &6entre en combat avec &c%victim% &6!" to loop-value# parsed as player
+					set {cw.combat.time_left::%victim%} to 30
+					set {cw.combat.time_left::%attacker%} to 30
+
+on block place:
+	if {cw.cite_status} is "open", "pause" or "prepare":
+		cancel event
+
+on block break:
+	if {cw.cite_status} is "open", "pause" or "prepare":
+		cancel event
+	if {cw.chest_bonus.location::1} is set:
+		loop 3 times:
+			set {_coord} to {cw.chest_bonus.location::%loop-number%}
+			add 0.5 to x coord of {_coord}
+			add 0.5 to y coord of {_coord}
+			add 0.5 to z coord of {_coord}
+
+			if location at event-block is {_coord}:
+				cancel event
+				send "&5[{@cite_prefix}&5] &c&lCoffre Bonus: &6Vous ne pouvez pas casser le coffre&6."
+
+#Ajuster les niveaux de chance
+on right click on chest:
+	if {cw.chest_bonus.location::1} is set:
+		loop 3 times:
+			if clicked block is block at {cw.chest_bonus.location::%loop-number%}:
+				set {_chest_number} to loop-number
+		if {_chest_number} is set:
+			if {cw.chest_bonus.player_open::%{_chest_number}%} is not set:
+				loop {cw.chest_bonus.player_open::*}:
+					if {cw.equipe.player_list::%{cw.equipe.team_player::%loop-value%}%::*} contains player:
+						send "&5[{@cite_prefix}&5] &cVotre équipe a déjà ouvert un coffre bonus !"
+						cancel event
+						stop
+				if {cw.chest_bonus.player_click::%{_chest_number}%} is not set:
+					set {cw.chest_bonus.player_click::%{_chest_number}%} to player
+					set {cw.chest_bonus.last_time_click::%{_chest_number}%} to now
+					set {cw.chest_bonus.start_time_click::%{_chest_number}%} to now
+					cancel event
+					broadcast "&5[{@cite_prefix}&5] &c&lCoffre Bonus: &c&l%display name of player%&6 commence à crocheter le coffre n°&6&l%{_chest_number}%."
+				else if {cw.chest_bonus.player_click::%{_chest_number}%} is player:
+					set {_diff} to difference between now and {cw.chest_bonus.start_time_click::%{_chest_number}%}
+					if {_diff} >= 30 seconds:
+						if {_chest_number} is {cw.chest_bonus.fake}:
+							send "&5[{@cite_prefix}&5] &6Il semblerait que ce coffre soit... &7&ovide..."
+							play sound "entity.wither.break_block" in hostile mobs category at volume 6 at pitch 0.5 at clicked block
+							play sound "entity.wither.death" in hostile mobs category at volume 6 at pitch 0.5 at clicked block
+							play sound "entity.wither.hurt" in hostile mobs category at volume 6 at pitch 0.5 at clicked block
+							console command "/advancement grant %player% only cite:empty_loot_chest"
+						else:
+							set {cw.chest_bonus.player_open::%{_chest_number}%} to player
+							if {cw.time_diff} <= 8 hours:
+								console command "/setblock %round x-coord of {cw.chest_bonus.location::%{_chest_number}%}% %round y-coord of {cw.chest_bonus.location::%{_chest_number}%}% %round z-coord of {cw.chest_bonus.location::%{_chest_number}%}% minecraft:chest{LootTable:""cite:start""} destroy"
+							else:
+								if number of players < 10:
+									if number of players < 7:
+										set {_level} to 2
+									else:
+										set {_level} to 1
+									apply unluck of tier {_level} to player for 3 second
+								else if number of players > 11:
+									set {_level} to round (number of players-11)/4
+									apply luck of tier {_level} to player for 3 second
+								wait 5 ticks
+								console command "/setblock %round x-coord of {cw.chest_bonus.location::%{_chest_number}%}% %round y-coord of {cw.chest_bonus.location::%{_chest_number}%}% %round z-coord of {cw.chest_bonus.location::%{_chest_number}%}% minecraft:chest{LootTable:""cite:cite""} destroy"
+							wait 5 ticks
+							play sound "ui.toast.challenge_complete" in hostile mobs category at volume 10 at pitch 1.5 to player
+						broadcast "&5[{@cite_prefix}&5] &c&lCoffre Bonus: &c&l%display name of player%&6 ouvre le coffre bonus &c&ln°%{_chest_number}% ! &4&lExplosion dans 30 secondes !"
+						delete {cw.chest_bonus.player_click::%{_chest_number}%}
+						delete {cw.chest_bonus.last_time_click::%{_chest_number}%}
+						console command "/advancement grant %player% only cite:loot_chest"
+						if {cw.advancement::first_loot_chest} is not set:
+							console command "/advancement grant %player% only cite:first_loot_chest"
+							set {cw.advancement::first_loot_chest} to player
+						if player's armor value is 0:
+							console command "/advancement grant %player% only cite:loot_chest_without_armor"
+						set {_ennemies} to 0
+						loop all players:
+							if distance between player and loop-player <= 50:
+								if {cw.equipe.team_player::%player%} is not {cw.equipe.team_player::%loop-player%}:
+									add 1 to {_ennemies}
+						if {_ennemies} >= 2:
+							console command "/advancement grant %player% only cite:loot_chest_with_ennemies"
+						wait 1 second
+						loop 60 times:
+							send action bar "&c&lATTENTION: &cExplosion du coffre dans &d&l%60-(loop-number/2)% &dsecondes !" to player
+							play 200 explosion on clicked block in range of 100
+							play sound "block.brewing_stand.brew" in hostile mobs category at volume 1 at pitch 0.5+((loop-number/2-1)*0.051) at clicked block
+							play sound "block.brewing_stand.brew" in hostile mobs category at volume 1 at pitch 0.3+((loop-number/2-1)*0.051) at clicked block
+							wait 10 ticks
+						set clicked block to air
+						create explosion of force 15 at clicked block
+					else:
+						set {_diff2} to difference between 30 seconds and {_diff}
+						if {_diff2} > 10 seconds:
+							set {_sec} to part of "%{_diff2}%" from character 1 to character 2 parsed as integer
+						else:
+							set {_sec} to part of "%{_diff2}%" from character 1 to character 1 parsed as integer
+						set {_percent} to 100-({_sec}/30)*100
+						set {_nbpourcent} to round up {_percent}
+						set {_bar} to "||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||"
+						set {_final_bar_first} to part of {_bar} from character 1 to character {_nbpourcent}
+						set {_final_bar_end} to part of {_bar} from character 1 to character 100-{_nbpourcent}
+						set {_final_bar} to "%NextColor({_final_bar_first}, 0, 1, 1, {_nbpourcent}, 1, true)%<##0070b5>&l%{_final_bar_end}%"
+						if {_final_bar_end} and {_final_bar} is set:
+							set {_percent} to "%{_percent}%"
+							send action bar "<##000596>[%{_final_bar}%<##000596>] &6(%NextColor({_percent}, 0, 1, 1, {_nbpourcent}, 1, true)%%%&6)" to player
+
+						play sound "block.brewing_stand.brew" in hostile mobs category at volume 3 at pitch 0.5 at {cw.chest_bonus.location::%{_chest_number}%}
+						send title "&2&lCrochetage..." with subtitle "&6%{_diff2}% restantes..." to player for 1.5 seconds with fade in 0 seconds and fade out 0 seconds
+						set {cw.chest_bonus.last_time_click::%{_chest_number}%} to now
+						cancel event
+				else:
+					cancel event
+					send "&5[{@cite_prefix}&5] &c&lCoffre Bonus: &c&lCe coffre est déjà en train d'être crocheté...&6."
+			else if {cw.equipe.player_list::%{cw.equipe.team_player::%{cw.chest_bonus.player_open::%{_chest_number}%}%}%::*} doesn't contain player:
+				cancel event
+				send "&5[{@cite_prefix}&5] &c&lCoffre Bonus: &6Ce coffre a déjà été ouvert par une autre équipe&6."
+	else:
+		if "%region at player%" contains "warzone":
+			if "%region at player%" doesn't contain "spawn":
+				break clicked block
+				send "&5[{@cite_prefix}&5] &cLes coffres sont désactivés en Warzone. Contenu droppé au sol."
+
+
+function ResetBonusChest():
+	delete {cw.chest_bonus.location::*}
+	delete {cw.chest_bonus.time_left}
+	delete {cw.chest_bonus.player_click::*}
+	delete {cw.chest_bonus.last_time_click::*}
+	delete {cw.chest_bonus.start_time_click::*}
+	delete {cw.chest_bonus.player_open::*}
+	delete {cw.chest_bonus.fake}
+
+function GenerateChest():
+	if {cw.chest_bonus.location::1} is not set:
+		broadcast "&5[{@cite_prefix}&5] &c&lCoffre Bonus: &6Des coffres bonus apparaîtront dans &c&l10 minutes&6."
+		delete {cw.chest_bonus.time_until_next}
+		set {cw.chest_bonus.time_left} to 10
+		wait 4 minutes
+		set {_rand} to random integer from 30 to 360 #from 5 to 15
+		wait "%{_rand}% seconds" parsed as timespan
+		loop 3 times:
+			set {_loc} to location at (100, 250, 100) of world "cite"
+			while block under {_loc} is air:
+				set {_x} to random integer between -440 and 380
+				if {_x} is between -160 and 100:
+					chance of 50%:
+						set {_y} to random integer between -430 and -160
+					else:
+						set {_y} to random integer between 100 and 380
+				else:
+					set {_y} to random integer between -430 and 380
+				set {_z} to random integer between 60 and 90
+				set {_loc} to location at ({_x}, {_z}, {_y}) of world "cite"
+			set {cw.chest_bonus.location::%loop-number%} to {_loc}
+		set {cw.chest_bonus.fake} to random integer from 1 to 3
+		broadcast "&5[{@cite_prefix}&5] &c&lCoffre Bonus: &63 coffres bonus apparaîtront aux coordonnées suivantes dans &c&l%(360-{_rand})/60% &cminutes&6 :%nl%&c&l&6%round(x coords of {cw.chest_bonus.location::1})%, %round(y coords of {cw.chest_bonus.location::1})%, %round(z coords of {cw.chest_bonus.location::1})%%nl%&c&l&6%round(x coords of {cw.chest_bonus.location::2})%, %round(y coords of {cw.chest_bonus.location::2})%, %round(z coords of {cw.chest_bonus.location::2})%%nl%&c&l&6%round(x coords of {cw.chest_bonus.location::3})%, %round(y coords of {cw.chest_bonus.location::3})%, %round(z coords of {cw.chest_bonus.location::3})%%nl%&6Utilisez une boussole pour les localiser."
+		wait "%360-{_rand}% seconds" parsed as timespan #30-
+		loop {cw.chest_bonus.location::*}:
+			set block at loop-value to chest
+		broadcast "&5[{@cite_prefix}&5] &c&lCoffre Bonus: &63 coffres bonus sont apparus aux coordonnées suivantes :%nl%&c&l&6%round(x coords of {cw.chest_bonus.location::1})%, %round(y coords of {cw.chest_bonus.location::1})%, %round(z coords of {cw.chest_bonus.location::1})%%nl%&c&l&6%round(x coords of {cw.chest_bonus.location::2})%, %round(y coords of {cw.chest_bonus.location::2})%, %round(z coords of {cw.chest_bonus.location::2})%%nl%&c&l&6%round(x coords of {cw.chest_bonus.location::3})%, %round(y coords of {cw.chest_bonus.location::3})%, %round(z coords of {cw.chest_bonus.location::3})%%nl%&6Utilisez une boussole pour les localiser."
+		wait 15 minutes  # 1 minutes
+		loop {cw.chest_bonus.location::*}:
+			set block at loop-value to air
+		broadcast "&5[{@cite_prefix}&5] &c&lCoffre Bonus: &6Les coffres bonus ont disparus (15 minutes écoulées)."
+		ResetBonusChest()
+		set {cw.chest_bonus.time_until_next} to random integer between 60 and 200
+
+on inventory close:
+	if {cw.chest_bonus.location::1} is set:
+		loop 3 times:
+			if current inventory of player is inventory of block at {cw.chest_bonus.location::%loop-number%}:
+				if inventory of block at {cw.chest_bonus.location::%loop-number%} is empty:
+					set block at {cw.chest_bonus.location::%loop-number%} to tnt
+
+on unstore:
+	if {cw.cite_status} is not "run":
+		cancel event
+	if {cw.chest_bonus.location::1} is set:
+		wait 1 tick
+		loop 3 times:
+			if current inventory of player is inventory of block at {cw.chest_bonus.location::%loop-number%}:
+				if inventory of block at {cw.chest_bonus.location::%loop-number%} is empty:
+					set block at {cw.chest_bonus.location::%loop-number%} to tnt
+
+on click with compass:
+	set tool of player to glowing tool of player
+	if {cw.chest_bonus.location::1} is set:
+		if line 2 of lore of tool of player contains "Spawn":
+			set line 2 of lore of tool of player to "&6Direction: &c&lCoffre bonus"
+			set line 3 of lore of tool of player to "1"
+			set compass target of player to {cw.chest_bonus.location::1}
+		else if line 2 of lore of tool of player contains "Coffre bonus":
+			if line 3 of lore of tool of player contains "1":
+				set line 3 of lore of tool of player to "2"
+				set compass target of player to {cw.chest_bonus.location::2}
+			else if line 3 of lore of tool of player contains "2":
+				set line 3 of lore of tool of player to "3"
+				set compass target of player to {cw.chest_bonus.location::3}
+			else if line 3 of lore of tool of player contains "3":
+				set line 2 of lore of tool of player to "&6Direction: &d&lSpawn"
+				if world of player is "cite":
+					set compass target of player to {cw.location.spawn}
+				else if world of player is "cite_nether":
+					set compass target of player to {cw.location.spawn_nether}
+				else if world of player is "cite_the_end":
+					set compass target of player to {cw.location.spawn_end}
+	else:
+		set line 2 of lore of tool of player to "&6Direction: &d&lSpawn"
+		if world of player is "cite":
+			set compass target of player to {cw.location.spawn}
+		else if world of player is "cite_nether":
+			set compass target of player to {cw.location.spawn_nether}
+		else if world of player is "cite_the_end":
+			set compass target of player to {cw.location.spawn_end}
+
+function ApplyRandomReduction():
+	console command "/hd removeline promo 2"
+	while size of {cw.reductions::*} < 3:
+		set {_npc::*} to yaml nodes "" of file "/plugins/Shopkeepers/save.yml"
+		set {_npc_reduc} to random integer between 1 and size of {_npc::*}
+		if yaml "%{_npc_reduc}%.recipes" in file "/plugins/Shopkeepers/save.yml" exists:
+			set {_npc_name} to yaml value "%{_npc_reduc}%.name" of file "/plugins/Shopkeepers/save.yml"
+			if {_npc_name} is not "Rare", "Livres enchantes", "Banquier", "" or "Item Speciaux":
+				set {_item_reduc} to random integer between 1 and size of yaml nodes "%{_npc_reduc}%.recipes" of file "/plugins/Shopkeepers/save.yml"
+				set {_item_output} to yaml value "%{_npc_reduc}%.recipes.%{_item_reduc}%.resultItem" of file "/plugins/Shopkeepers/save.yml"
+				if {_item_output} is emerald:
+					set {_number_emerald} to item amount of {_item_output}
+					set {_item_name} to yaml value "%{_npc_reduc}%.recipes.%{_item_reduc}%.item1" of file "/plugins/Shopkeepers/save.yml"
+					#broadcast "NPC: %{_npc_name}%, ITEM: %{_item_name}%, EMERALDS: %{_number_emerald}%"
+					set {_output_number} to {_number_emerald}*2
+					set {_output_emeralds} to {_output_number} of {_item_output}
+					#broadcast "set yaml value %{_npc_reduc}%.recipes.%{_item_reduc}%.resultItem of file /plugins/Shopkeepers/save.yml to %{_output_emeralds}%"
+					set yaml value "%{_npc_reduc}%.recipes.%{_item_reduc}%.resultItem" of file "/plugins/Shopkeepers/save.yml" to {_output_emeralds}
+					if {cw.reductions::%{_npc_reduc}%_%{_item_reduc}%} is not set:
+						set {cw.reductions::%{_npc_reduc}%_%{_item_reduc}%} to {_item_output}
+						console command "/hd addline promo &6%{_item_name}% &epour &c&l%{_output_number}% &cémeraudes &e(PNJ &a%{_npc_name}%&e)"
+						set {_hd_name} to "%type of {_item_name}%"
+						replace all " items", " item", "turtle " and " block" with "" in {_hd_name}
+						replace all "water lily" with "lily_pad" in {_hd_name}
+						replace all "ender dragon" with "dragon" in {_hd_name}
+						replace all "feet" with "foot" in {_hd_name}
+						replace all "raw granites" with "granite" in {_hd_name}
+						replace all "raw diorites" with "diorite" in {_hd_name}
+						replace all "raw andesites" with "andesite" in {_hd_name}
+						#broadcast "%{_hd_name}%"
+						console command "/hd addline promo ICON: %{_hd_name}%"
+	console command "/shopkeeper reload"
+	broadcast "&5[{@cite_prefix}&5] &d&lDes promotions sont en cours au Spawn !"
+
+function RemoveRandomReduction():
+	loop {cw.reductions::*}:
+		set {_ids::*} to loop-index split by "_"
+		set yaml value "%{_ids::1}%.recipes.%{_ids::2}%.resultItem" of file "/plugins/Shopkeepers/save.yml" to loop-value
+	console command "/shopkeeper reload"
+	console command "/hd setline promo 2 &eAucune"
+	loop 6 times:
+		console command "/hd removeline promo 3"
+	delete {cw.reductions::*}
+	broadcast "&5[{@cite_prefix}&5] &6&lLes promotions sont terminées."
+
+on advancement complete:
+	#broadcast "%event-key%"
+	wait 1 tick
+	set {_emeralds} to yaml value "%event-key%" from file "plugins/Skript/config/advancement.yml"
+	if {_emeralds} is set:
+		GiveEmeralds(event-player, "%{_emeralds}%" parsed as integer)
+		broadcast "&5[{@cite_prefix}&5] %display name of event-player% &6gagne &c&l%{_emeralds}% &cémeraudes &6pour la réalisation de son succès !"
+
+function ResetTotal():
+	ResetClassement()
+	RemoveRandomReduction()
+	ResetBonusChest()
+	delete {cw.played_time_minute::*}
+	loop all players:
+		set {cw.played_time_minute::%loop-player%} to 0
+	delete {cw.region_pass_delay::*}
+	delete {cw.region_pass_status::*}
+	delete {cw.regeneration_delay::*}
+	delete {cw.unstuck_delay::*}
+	delete {cw.pass_spawn::*}
+	delete {cw.is_invisible::*}
+	delete {cw.cite_status}
+	delete {cw.start_timestamp}
+	delete {cw.time_before_start}
+	delete {cw.villager.player::*}
+	delete {cw.villager.time_rest::*}
+	delete {cw.emeralds.player::*}
+	delete {cw.emeralds.equipe::*}
+	delete {cw.emeralds.top.player.index::*}
+	delete {cw.emeralds.top.player.value::*}
+	delete {cw.emeralds.top.player::*}
+	delete {cw.emeralds.top.equipe.index::*}
+	delete {cw.emeralds.top.equipe.value::*}
+	delete {cw.emeralds.top.equipe::*}
+	delete {cw.death.kill::*}
+	delete {cw.death.tue::*}
+	delete {cw.death.pve::*}
+	delete {cw.combat.time_left::*}
+	delete {cw.trade::*}
+	delete {cw.kill.boost::*}
+	delete {cw.chest_bonus.time_until_next}
+	delete {cw.played_time_today::*}
+	delete {cw.is_brouille::*}
+	delete {cw.chat.reponse::*}
+	delete {cw.next_attack::*}
+	delete {cw.spawn_cooldown::*}
+	delete {cw.in_spawn_time::*}
+	delete {cw.near_door_time::*}
+	delete {cw.advancement::*}
+	delete {cw.time_diff}
+	delete {cw.chat.ignore::*}
+	delete {cw.chat.mute::*}
+	delete {cw.chat.mute_chat}
+	delete {cw.stop_lag}
+	ResetCapture()
+
+
+on respawn:
+	delete {cw.region_pass_delay::%player%}
+	delete {cw.region_pass_status::%player%}
+	delete {cw.regeneration_delay::%player%}
+	delete {cw.unstuck_delay::%player%}
+	delete {cw.is_invisible::%player%}
+	delete {cw.near_door_time::%player%}
+	teleport player to {cw.location.spawn}
+	if {cw.in_spawn_time::%player%} > 10:
+		remove 5 from {cw.in_spawn_time::%player%}
+	set glowing of player to off
+	wait 2 ticks
+	send title "" with subtitle "&d&lSpawn" to player for 0.75 seconds with fade in 0.75 seconds and fade out 0.75 seconds
+	apply speed of tier 2 without particles to player for 5 minutes
+	apply saturation of tier 2 without particles to player for 5 minutes
+	apply resistance of tier 2 without particles to player for 5 minutes
+	set compass target of player to {cds_tp_spawn}
+	wait 0.5 second
+	loop {cw.capture.attacker::*}:
+		if loop-value is player:
+			EchecCapture(loop-index parsed as integer, "il est mort pendant la capture.")
+
+function ResetCapture():
+	delete {cw.capture.owned::*}
+	delete {cw.capture.attack_load_time::*}
+	delete {cw.capture.attacker::*}
+	delete {cw.capture.capture_time_left::*}
+	delete {cw.capture.emerald_per_hour::*}
+	delete {cw.capture.time_until_decay::*}
+	delete {cw.capture.time_until_pay::*}
+	delete {cw.capture.stored_emeralds::*}
+	loop {cw.capture.color_block::*}:
+		set block at loop-value to air
+		RefreshCaptureDisplays(loop-index parsed as integer)
+
+# POINT CAPTURE:
+# {cw.capture.owned::*} --> Renvoie le numéro de l'équipe qui possède le point. <none> si non-possédé
+# {cw.capture.emerald_per_hour::*} --> Nombre d'émeraude par heure    MIN: 32  MAX: 160  DEFAULT: 80   /HEURE:-5  ATTAQUE PAR AUTRE EQUIPE : +30 ATTAQUE PAR MEME EQUIPE: +20
+# {cw.capture.time_until_decay::*} --> Minutes restantes avant disparition
+# {cw.capture.time_until_pay::*} --> Minutes restantes avant la paye
+# {cw.capture.stored_emeralds::*} --> Nombre d'émeraudes stockés dans le point de capture
+
+# {cw.capture.attack_load_time::*} --> Renvoie le temps de chargement de l'attaque
+# {cw.capture.capture_time_left::*} --> Renvoie le temps de restant de la capture
+# {cw.capture.attacker::*} --> Renvoie le joueur qui attaque
+
+# {cw.capture.name::*} --> Nom des points de capture
+# {cw.capture.equipe_color::*} --> Bloc a blacer au dessus de la balise
+# {cw.capture.color_block::*} --> Emplacement du bloc a modifier
+
+function RefreshCaptureDisplays(point : integer):
+	if {cw.capture.owned::%{_point}%} is not set:
+		console command "/hd setline point_%{_point}% 2 &e&lNon contrôlé par une équipe"
+	else:
+		console command "/hd setline point_%{_point}% 2 &e&lContrôlé par l'équipe %{cw.equipe.color::%{cw.capture.owned::%{_point}%}%}%&l%{cw.equipe.name::%{cw.capture.owned::%{_point}%}%}%"
+	if {cw.capture.attack_load_time::%{_point}%} > 0:
+		console command "/hd setline point_%{_point}% 3 &6&lAttaque en cours par %display name of {cw.capture.attacker::%{_point}%}%"
+		console command "/hd setline point_%{_point}% 4 &c&lCapture en chargement : %GetTimeText({cw.capture.attack_load_time::%{_point}%})%"
+	else if {cw.capture.attack_load_time::%{_point}%} < 0:
+		console command "/hd setline point_%{_point}% 3 &6&lAttaque en cours par %display name of {cw.capture.attacker::%{_point}%}%"
+		console command "/hd setline point_%{_point}% 4 &c&lCapture en attente : %GetTimeText(300+{cw.capture.attack_load_time::%{_point}%})%"
+	else if {cw.capture.capture_time_left::%{_point}%} is set:
+		set {_percent} to 100-({cw.capture.capture_time_left::%{_point}%}/120)*100
+		console command "/hd setline point_%{_point}% 3 &6&lCapture en cours par %display name of {cw.capture.attacker::%{_point}%}%"
+		console command "/hd setline point_%{_point}% 4 &c&lProgression : &6&l%{_percent}%&6%% &a(&2%GetTimeText({cw.capture.capture_time_left::%{_point}%})%&a)"
+	else:
+		if {cw.capture.owned::%{_point}%} is set:
+			console command "/hd setline point_%{_point}% 3 <##824e00>Émeraudes dans : &a&l%{cw.capture.time_until_pay::%{_point}%}% &aminutes"
+			console command "/hd setline point_%{_point}% 4 <##824e00>Temps de possession restant : &c&l%GetTimeText({cw.capture.time_until_decay::%{_point}%})%"
+		else:
+			console command "/hd setline point_%{_point}% 3 <##824e00>Émeraudes dans : &a&l--- &aminutes"
+			console command "/hd setline point_%{_point}% 4 <##824e00>Temps de possession restant : &c&l00:00"
+		console command "/hd setline point_%{_point}% 5 <##824e00>Production : &a&l%{cw.capture.emerald_per_hour::%{_point}%}% &aémeraudes/heure"
+		console command "/hd setline point_%{_point}% 6 <##824e00>Émeraudes stockés : &2&l%{cw.capture.stored_emeralds::%{_point}%}%"
+
+function EchecCapture(point: integer, reason : text):
+	send title "&c&lÉchec !" with subtitle "&c&lde la capture du point" to {cw.equipe.player_list::%{cw.equipe.team_player::%{cw.capture.attacker::%{_point}%}%}%::*} for 2 seconds with fade in 0.1 seconds and fade out 5 seconds
+	play sound "entity.wither.death" in hostile mobs category at volume 100 at pitch 0.5 to {cw.equipe.player_list::%{cw.equipe.team_player::%{cw.capture.attacker::%{_point}%}%}%::*}
+	send title "&a&lSuccès !" with subtitle "&a&lde la protection du point" to {cw.equipe.player_list::%{cw.capture.owned::%{_point}%}%::*} for 2 seconds with fade in 0.1 seconds and fade out 5 seconds
+	play sound "ui.toast.challenge_complete" in hostile mobs category at volume 100 at pitch 2 to {cw.equipe.player_list::%{cw.capture.owned::%{_point}%}%::*}
+	broadcast "&5[{@cite_prefix}&5] &7[&5&lCapture&7] &6La capture du point %{cw.capture.name::%{_point}%}% &6par %display name of {cw.capture.attacker::%{_point}%}% &6a &céchouée &6car %{_reason}%"
+	send "&5[{@cite_prefix}&5] &7[&5&lCapture&7] &6Vous n'avez pas réussi à capturer le point de capture... Réessayez." to {cw.equipe.player_list::%{cw.equipe.team_player::%{cw.capture.attacker::%{_point}%}%}%::*}
+	send "&5[{@cite_prefix}&5] &7[&5&lCapture&7] &aVous gardez la possession du point %{cw.capture.name::%{_point}%}% car la capture a échouée ! &6La production augmente de 30 émeraudes/heures !" to {cw.equipe.player_list::%{cw.capture.owned::%{_point}%}%::*}
+	console command "/advancement grant %{cw.capture.attacker::%{_point}%}% only cite:fail_capture_point"
+	delete {cw.capture.attack_load_time::%{_point}%}
+	delete {cw.capture.attacker::%{_point}%}
+	delete {cw.capture.capture_time_left::%{_point}%}
+	if {cw.capture.owned::%{_point}%} is set:
+		add 30 to {cw.capture.emerald_per_hour::%{_point}%}
+		set block at {cw.capture.color_block::%{_point}%} to {cw.capture.equipe_color::%{cw.capture.owned::%{_point}%}%}
+		loop {cw.equipe.player_list::%{cw.capture.color_block::%{_point}%}%::*}:
+			console command "/advancement grant %loop-value% only cite:protect_point"
+	else:
+		set block at {cw.capture.color_block::%{_point}%} to air
+	RefreshCaptureDisplays({_point})
+
+function SuccesCapture(point: integer):
+	send title "&a&lSuccès !" with subtitle "&a&lde la capture du point" to {cw.equipe.player_list::%{cw.equipe.team_player::%{cw.capture.attacker::%{_point}%}%}%::*} for 2 seconds with fade in 0.1 seconds and fade out 5 seconds
+	play sound "ui.toast.challenge_complete" in hostile mobs category at volume 100 at pitch 2 to {cw.equipe.player_list::%{cw.equipe.team_player::%{cw.capture.attacker::%{_point}%}%}%::*}
+	send title "&c&lÉchec !" with subtitle "&c&lde la protection du point" to {cw.equipe.player_list::%{cw.capture.owned::%{_point}%}%::*} for 2 seconds with fade in 0.1 seconds and fade out 5 seconds
+	play sound "entity.wither.death" in hostile mobs category at volume 100 at pitch 0.5 to {cw.equipe.player_list::%{cw.capture.owned::%{_point}%}%::*}
+	send colored "&5[{@cite_prefix}&5] &7[&5&lCapture&7] &2Le point de capture %{cw.capture.name::%{_point}%}% &2vous appartient désormais !" to {cw.equipe.player_list::%{cw.equipe.team_player::%{cw.capture.attacker::%{_point}%}%}%::*}
+	send colored "&5[{@cite_prefix}&5] &7[&5&lCapture&7] &cVous perdez la possession du point %{cw.capture.name::%{_point}%}% &ccar %display name of {cw.capture.attacker::%{_point}%}% &cl'a capturé !" to {cw.equipe.player_list::%{cw.capture.owned::%{_point}%}%::*}
+	if {cw.capture.owned::%{_point}%} is not set:
+		set {_neutre} to true
+	else:
+		if {cw.capture.time_until_decay::%{_point}%} >= 450:
+			console command "/advancement grant %{cw.capture.attacker::%{_point}%}% only cite:steal_point"
+	set {cw.capture.owned::%{_point}%} to {cw.equipe.team_player::%{cw.capture.attacker::%{_point}%}%}
+	broadcast "&5[{@cite_prefix}&5] &7[&5&lCapture&7] &6%display name of {cw.capture.attacker::%{_point}%}% &6a capturé le point %{cw.capture.name::%{_point}%}% &6! &dLe point appartient désormais à l'équipe %{cw.equipe.color::%{cw.capture.owned::%{_point}%}%}%%{cw.equipe.name::%{cw.capture.owned::%{_point}%}%}%"
+	console command "/advancement grant %{cw.capture.attacker::%{_point}%}% only cite:capture_point"
+	if {cw.advancement::first_point_capture} is not set:
+		console command "/advancement grant %{cw.capture.attacker::%{_point}%}% only cite:first_point_capture"
+		set {cw.advancement::first_point_capture} to {cw.capture.attacker::%{_point}%}
+	set block at {cw.capture.color_block::%{_point}%} to {cw.capture.equipe_color::%{cw.capture.owned::%{_point}%}%}
+	if {cw.capture.emerald_per_hour::%{_point}%} is not set:
+		set {cw.capture.emerald_per_hour::%{_point}%} to 64
+	else if {_neutre}:
+		add 20 to {cw.capture.emerald_per_hour::%{_point}%}
+	else:
+		add 25 to {cw.capture.emerald_per_hour::%{_point}%}
+	if {cw.capture.emerald_per_hour::%{_point}%} > 160:
+		set {cw.capture.emerald_per_hour::%{_point}%} to 160
+		console command "/advancement grant %{cw.capture.attacker::%{_point}%}% only cite:point_max_production"
+	set {cw.capture.time_until_decay::%{_point}%} to 480
+	set {cw.capture.time_until_pay::%{_point}%} to 30
+	if {cw.capture.stored_emeralds::%{_point}%} is not set:
+		set {cw.capture.stored_emeralds::%{_point}%} to 0
+	RefreshCaptureDisplays({_point})
+	delete {cw.capture.attack_load_time::%{_point}%}
+	delete {cw.capture.attacker::%{_point}%}
+	delete {cw.capture.capture_time_left::%{_point}%}
+
+function StartCapture(point:integer):
+	play sound "block.anvil.land" in hostile mobs category at volume 100 at pitch 0.5 to {cw.equipe.player_list::%{cw.capture.owned::%{_point}%}%::*}
+	send title "&4&lALERTE" with subtitle "&c&lLa capture a débutée !" to {cw.equipe.player_list::%{cw.capture.owned::%{_point}%}%::*} for 2 seconds with fade in 0.1 seconds and fade out 5 seconds
+	send colored "&5[{@cite_prefix}&5] &7[&5&lCapture&7] &2&lCapture en cours! &c&lRestez sur le point de capture %{cw.capture.name::%{_point}%}% &c&lpendant 2 minutes pour le capturer !" to {cw.capture.attacker::%{_point}%}
+	delete {cw.capture.attack_load_time::%{_point}%}
+	set {cw.capture.capture_time_left::%{_point}%} to 120
+	loop 40 times:
+		send title "&a&lCapture en cours..." with subtitle "&c&lRestez sur le point !" to {cw.capture.attacker::%{_point}%} for 2 seconds with fade in 0 seconds and fade out 5 seconds
+		wait 2 ticks
+
+on right click on beacon:
+	if "%region at player%" contains "point_1":
+		set {_point} to 1
+	else if "%region at player%" contains "point_2":
+		set {_point} to 2
+	if {_point} is set:
+		play sound "ui.toast.in" in hostile mobs category at volume 100 at pitch 0.5 to player
+		cancel event
+		close player's inventory
+		if name of event-item is "&c&lBâton de capture":
+			if {cw.time_diff} >= 210 minutes:
+				if {cw.capture.attacker::%{_point}%} is not set:
+					if {cw.capture.owned::%{_point}%} is not {cw.equipe.team_player::%player%}:
+						loop {cw.capture.owned::*}:
+							if loop-value is {cw.equipe.team_player::%player%}:
+								send "&5[{@cite_prefix}&5] &6Votre équipe possède déjà un point de capture !"
+								stop
+						if {cw.capture.attacker::*} contains player:
+							send "&5[{@cite_prefix}&5] &6Vous ne pouvez pas attaquer ou posséder 2 points de capture."
+							stop
+						set block at {cw.capture.color_block::%{_point}%} to black stained glass pane
+						set {cw.capture.attack_load_time::%{_point}%} to 900
+						set {cw.capture.attacker::%{_point}%} to player
+						console command "/advancement grant %player% only cite:attack_point"
+						remove 1 of player's tool from player's tool
+						if {cw.capture.owned::%{_point}%} is set:
+							play sound "block.anvil.land" in hostile mobs category at volume 100 at pitch 0.5 to {cw.equipe.player_list::%{cw.capture.owned::%{_point}%}%::*}
+							send title "&4&lALERTE" with subtitle "&c&lPoint de capture attaqué !" to {cw.equipe.player_list::%{cw.capture.owned::%{_point}%}%::*} for 2 seconds with fade in 0.1 seconds and fade out 5 seconds
+							broadcast "&5[{@cite_prefix}&5] &7[&5&lCapture&7] &c%display name of player% &clance une attaque sur le point de capture %{cw.capture.name::%{_point}%}% &c! &6(Point actuellement possédé par l'équipe %{cw.equipe.color::%{cw.capture.owned::%{_point}%}%}%&l%{cw.equipe.name::%{cw.capture.owned::%{_point}%}%}%&6)%nl%&a&lLa capture entre en chargement pendant 15 minutes !"
+						else:
+							broadcast "&5[{@cite_prefix}&5] &7[&5&lCapture&7] &c%display name of player% &clance une attaque sur le point de capture %{cw.capture.name::%{_point}%}% &c! &6(Point actuellement non possédé par équipe)%nl%&a&lLa capture entre en chargement pendant 15 minutes !"
+						wait 1 second
+						send "&5[{@cite_prefix}&5] &7[&5&lCapture&7] &6La capture entre en chargement pendant 15 minutes... &c&lSoyez présent sur le point de capture au bout des 15 minutes !" to player
+					else:
+						send "&5[{@cite_prefix}&5] &cCe point vous appartient déjà !"
+				else:
+					send "&5[{@cite_prefix}&5] &cCe point est déjà en train d'être attaqué !"
+			else:
+				send "&5[{@cite_prefix}&5] &cLes points de captures sont désactivés avant 3h30 de jeu !"
+		else:
+			if {cw.capture.owned::%{_point}%} is {cw.equipe.team_player::%player%}:
+				if {cw.capture.stored_emeralds::%{_point}%} > 0:
+					if {cw.capture.attacker::%{_point}%} is set:
+						send "&5[{@cite_prefix}&5] &6Ce point est en train de se faire attaquer !"
+					else:
+						GiveEmeralds(player, {cw.capture.stored_emeralds::%{_point}%})
+						if {cw.capture.stored_emeralds::%{_point}%} >= 350:
+							console command "/advancement grant %player% only cite:get_point_350_emerald"
+						if {cw.capture.time_until_decay::%{_point}%} <= 1:
+							console command "/advancement grant %player% only cite:point_get_emerald_last_minute"
+						set {cw.capture.stored_emeralds::%{_point}%} to 0
+						RefreshCaptureDisplays({_point})
+						play sound "entity.player.levelup" in hostile mobs category at volume 100 at pitch 2 to player
+						console command "/advancement grant %player% only cite:get_point_emerald"
+				else:
+					send "&5[{@cite_prefix}&5] &6Il n'y a aucune émeraude à récupérer."
+			else:
+				send "&5[{@cite_prefix}&5] &6Vous devez utiliser un &c&lBâton de capture &6pour capturer le point."
+
+function PingSound(player:player):
+	play sound "entity.arrow.hit_player" in hostile mobs category at volume 100 at pitch 0.5 to {_player}
+	wait 3 ticks
+	play sound "entity.arrow.hit_player" in hostile mobs category at volume 100 at pitch 1 to {_player}
+	wait 3 ticks
+	play sound "entity.arrow.hit_player" in hostile mobs category at volume 100 at pitch 1.5 to {_player}
+	wait 3 ticks
+	play sound "entity.arrow.hit_player" in hostile mobs category at volume 100 at pitch 2 to {_player}
+
+function GiveEmeralds(player:player, emeralds : integer):
+	if {_player}'s inventory can hold {_emeralds} of emeralds:
+		give {_emeralds} of emeralds named "&c&lÉmeraude de la cité" to {_player}
+		send "&c&l%{_emeralds}% &cémeraudes &6ajoutés à votre inventaire." to {_player}
+	else:
+		drop {_emeralds} of emeralds named "&c&lÉmeraude de la cité" at {_player}
+		send "&c&l%{_emeralds}% &cémeraudes &6jetés au sol (vous n'avez plus de place dans votre inventaire)." to {_player}
+
+on place of chest, trapped chest, barrel or any shulker box:
+	if "%region at event-location%" contains "maison_":
+		if event-block is chest:
+			set {_regions::*} to regions at event-location
+			loop {_regions::*}:
+				if "%loop-value%" starts with "maison_":
+					set {_region} to loop-value
+			loop all blocks in region {_region}:
+				if loop-block is chest:
+					add 1 to {_chests}
+			if {_chests} > 8:
+				cancel event
+				send "&5[{@cite_prefix}&5] &cVous avez atteint le maximum de coffres (8 par maison)!"
+		else:
+			cancel event
+			send "&5[{@cite_prefix}&5] &cSeuls les coffres sont autorisés dans les maisons!"
+	else if "%region at player%" contains "warzone":
+		cancel event
+		send "&5[{@cite_prefix}&5] &cVous ne pouvez pas placer de coffres et Shulker box dans la WarZone!"
+	else if "%region at player%" is "game in world cite":
+		cancel event
+		send "&5[{@cite_prefix}&5] &cTous les conteneurs sont interdits en Zone d'exploration!"
+
+on place of dispenser, dropper or hopper:
+	if "%region at player%" contains "warzone":
+		send "&5[{@cite_prefix}&5] &6&lAttention: &6Ce conteneur n'est autorisé que pour des machines de redstone en WarZone. Stockage de ressources interdit!"
+	else if "%region at player%" is "game in world cite":
+		cancel event
+		send "&5[{@cite_prefix}&5] &cTous les conteneurs sont interdits en Zone d'exploration!"
+
+on store:
+	if "%player%" is not "Admin":
+		if "%region at player%" is "game in world cite":
+			if event-item is not saddle, leather horse armor, diamond horse armor, gold horse armor or iron horse armor:
+				cancel event
+				send "&5[{@cite_prefix}&5] &cStockage de ressources interdit en Zone d'exploration!"
+		else if "%region at player%" contains "spawn":
+			if event-item is emerald or any shulker box:
+				cancel event
+				send action bar "&6Impossible de stocker cet item au spawn" to player
+
+on inventory click:
+	if type of player's current inventory is shulker box inventory:
+		if event-item is emerald:
+			cancel event
+			send action bar "&6Impossible de stocker des émeraudes dans une boîte de Shulker" to player
+
+on inventory close:
+	if type of player's current inventory is shulker box inventory:
+		loop all items in player's current inventory:
+			if loop-item is emerald:
+				set loop-item to air
+	else if "%region at player%" contains "spawn":
+		if type of player's current inventory is chest inventory, dropper inventory, hopper inventory or dispenser inventory:
+			loop all items in player's current inventory:
+				if loop-item is emerald:
+					set loop-item to air
+
+on place of ender chest:
+	cancel event
+	send "&5[{@cite_prefix}&5] &cLes enderchest sont totalement désactivés!"
+
+on right click on ender chest:
+	cancel event
+	send "&5[{@cite_prefix}&5] &cLes enderchest sont totalement désactivés!"
+
+on craft of ender chest:
+	cancel event
+	send "&5[{@cite_prefix}&5] &cLes enderchest sont totalement désactivés!"
+
+on craft of emerald block:
+	cancel event
+	send "&5[{@cite_prefix}&5] &cCe craft est désactivé!"
+
+on heal:
+	if entity is a player:
+		if "%region at player%" contains "warzone":
+			if "%region at player%" doesn't contain "spawn":
+				cancel event
+		if {cw.regeneration_delay::%player%} is set:
+			cancel event
+		set {_health} to player's health*2
+		set score "&7HP" below player to {_health} for all players
+
+on target:
+	if world of target is "cite_the_end" or "cite_nether":
+		if "%region at target%" contains "spawn" or "nobuild":
+			cancel event
+
+on right click on barrier:
+	if "%region at player%" contains "banque":
+		console command "/cwd %player%"
+
+#on right click on a chest or furnace:
+	# if "%region at player%" contains "spawn":
+	# 	if "%members of region at targeted block%" contains "%player%":
+	# 		send "&5[{@cite_prefix}&5] &aVous ouvrez votre coffre/four protégé!"
+	# 	else:
+	# 		cancel event
+	# 		send "&5[{@cite_prefix}&5] &cCeci ne vous appartient pas!"
+
+on world change:
+	wait 1 tick
+	if {cw.cite_status} is "spectator":
+		wait 1 second
+		set gamemode of player to spectator
+		set fly speed of player to 0.2
+	if world of player is "cite":
+		set compass target of player to {cw.location.spawn}
+	else if world of player is "cite_nether":
+		set compass target of player to {cw.location.spawn_nether}
+		if {cw.advancement::first_enter_nether} is not set:
+			console command "/advancement grant %player% only cite:first_enter_nether"
+			set {cw.advancement::first_enter_nether} to player
+		if {cw.time_diff} <= 130 minutes:
+			console command "/advancement grant %player% only cite:enter_nether"
+	else if world of player is "cite_the_end":
+		set compass target of player to {cw.location.spawn_end}
+		if {cw.time_diff} <= 1470 minutes:
+			console command "/advancement grant %player% only cite:enter_end"
+
+on right click with piece of paper:
+	if name of player's tool contains "&6&lParchemin de téléportation":
+		set {cw.pass_spawn::%player%} to true
+		teleport player to {cw.location.spawn}
+		set glowing of player to off
+		PlaySoundProtect(player)
+		send "&5[{@cite_prefix}&5] &cVous avez utilisé votre parchemin de téléportation au spawn"
+		broadcast "&5[{@cite_prefix}&5] &c&l%display name of player% &ea utilisé un &6Parchemin de téléportation&e."
+		remove 1 of player's tool from tool of player
+		delete {cw.pass_spawn::%player%}
+		console command "/advancement grant %player% only cite:use_spawn_teleport"
+	if name of player's tool contains "&6&lRelevé bancaire":
+		set {_number} to {cw.equipe.team_player::%player%}
+		while {_number} is {cw.equipe.team_player::%player%}:
+			set {_number} to random integer between 1 and size of {cw.equipe.player_list::*}
+		set {_result} to random integer between 0.9*{cw.emeralds.equipe::%{_number}%} and 1.1*{cw.emeralds.equipe::%{_number}%}
+		send colored "&5[{@cite_prefix}&5] &6Le relevé bancaire indique: &dL'équipe %{cw.equipe.color::%{_number}%}%%{cw.equipe.name::%{_number}%}% &dpossède environ &2&l%{_result}% &2émeraudes. &6(± 10%%)" to {cw.equipe.player_list::%{cw.equipe.team_player::%player%}%::*}
+		broadcast "&5[{@cite_prefix}&5] &c&l%display name of player% &ea utilisé un &6Relevé bancaire&e."
+		remove 1 of player's tool from tool of player
+		console command "/advancement grant %player% only cite:use_bank_recieve"
+
+on consume:
+	if name of event-item is "&6&lPotion de Vie Suprême":
+		if "%region at player%" contains "warzone":
+			if "%region at player%" don't contain "spawn":
+				heal the player
+				PlaySoundProtect(player)
+				console command "/advancement grant %player% only cite:use_heal_potion"
+				broadcast "&5[{@cite_prefix}&5] &c&l%display name of player% &ea utilisé une &6Potion de vie Suprême&e."
+			else:
+				cancel event
+				send "&5[{@cite_prefix}&5] &cVous ne pouvez utiliser cette potion que dans la WarZone !"
+		else:
+			cancel event
+			send "&5[{@cite_prefix}&5] &cVous ne pouvez utiliser cette potion que dans la WarZone !"
+	else if name of event-item is "&6&lPotion d'Invisibilité Suprême":
+		#A revoir pour utiliser les effets plutot que un timer
+		if {cw.is_invisible::%player%} is not set:
+			send "&5[{@cite_prefix}&5] &6Potion d'Invisibilité Suprême &eactivée pendant &a8 minutes !" to player
+			set glowing of player to off
+			set {cw.is_invisible::%player%} to true
+			apply invisibility of tier 200 without particles to the player for 480 seconds
+			#apply resistance of tier 5 without particles to the player for 300 seconds
+			PlaySoundProtect(player)
+			console command "/advancement grant %player% only cite:use_invisibility_potion"
+			wait 8 minutes
+			delete {cw.is_invisible::%player%}
+			send "&5[{@cite_prefix}&5] &6Votre effet d'invisibilité Suprême &ea pris fin." to player
+			if "%region at player%" contains "warzone":
+				if "%region at player%" don't contain "spawn":
+					set glowing of player to on
+		else:
+			cancel event
+			send "&5[{@cite_prefix}&5] &cVous avez déjà cet effet appliqué!"
+	else if name of event-item is "&6&lPotion de brouillage":
+		if {cw.is_brouille::%player%} is not set:
+			broadcast "&5[{@cite_prefix}&5] &c&l%display name of player% &ea utilisé une &6Potion de brouillage&e."
+			send "&5[{@cite_prefix}&5] &6Effet de brouillage &eactivé pendant &a20 minutes !" to player
+			set {cw.is_brouille::%player%} to 1
+			PlaySoundProtect(player)
+			console command "/advancement grant %player% only cite:use_brouillage"
+			wait 20 minutes
+			delete {cw.is_brouille::%player%}
+			send "&5[{@cite_prefix}&5] &6Votre effet de brouillage &ea pris fin." to player
+		else:
+			cancel event
+			send "&5[{@cite_prefix}&5] &cVous avez déjà cet effet appliqué!"
+	else if name of event-item is "&6&lPotion de brouillage discrète":
+		if {cw.is_brouille::%player%} is not set:
+			send "&5[{@cite_prefix}&5] &6Effet de brouillage discret &eactivé pendant &a15 minutes !" to player
+
+			if player is in world "cite":
+				set {_world} to random element out of "&c&lNether" or "&b&lEnd"
+			else if player is in world "cite_nether":
+				set {_world} to random element out of "&b&lEnd" or "&a&lOverWorld"
+			else if player is in world "cite_the_end":
+				set {_world} to random element out of "&c&lNether" or "&a&lOverWorld"
+			if "%region at player%" contain "spawn":
+				set {_region} to random element out of "&4&lWarZone", "&b&lZone libre" or "&e&lZone d'exploration"
+			else if "%region at player%" contain "warzone":
+				set {_region} to random element out of "&d&lSpawn", "&b&lZone libre" or "&e&lZone d'exploration"
+			else if "%region at player%" contain "zonelibre":
+				set {_region} to random element out of "&d&lSpawn", "&4&lWarZone" or "&e&lZone d'exploration"
+			else:
+				set {_region} to random element out of "&d&lSpawn", "&4&lWarZone" or "&b&lZone libre"
+			if {_world} is "&c&lNether" or "&b&lEnd":
+				if {_region} is "&b&lZone libre":
+					set {_region} to random element out of "&d&lSpawn", "&4&lWarZone" or "&e&lZone d'exploration"
+			if number of emerald in player's inventory is 0:
+				set {_poids} to random element out of "Très léger", "Léger", "Moyen", "Lourd", "Très lourd" or "Extrêmement lourd"
+			else if number of emerald in player's inventory <= 15:
+				set {_poids} to random element out of "Vide", "Léger", "Moyen", "Lourd", "Très lourd" or "Extrêmement lourd"
+			else if number of emerald in player's inventory <= 35:
+				set {_poids} to random element out of "Vide", "Très léger", "Moyen", "Lourd", "Très lourd" or "Extrêmement lourd"
+			else if number of emerald in player's inventory <= 70:
+				set {_poids} to random element out of "Vide", "Très léger", "Léger", "Lourd", "Très lourd" or "Extrêmement lourd"
+			else if number of emerald in player's inventory <= 150:
+				set {_poids} to random element out of "Vide", "Très léger", "Léger", "Moyen", "Très lourd" or "Extrêmement lourd"
+			else if number of emerald in player's inventory <= 300:
+				set {_poids} to random element out of "Vide", "Très léger", "Léger", "Moyen", "Lourd", or "Extrêmement lourd"
+			else:
+				set {_poids} to random element out of "Vide", "Très léger", "Léger", "Moyen", "Lourd" or "Très lourd"
+			set {cw.is_brouille::%player%} to "%{_world}%|%{_region}%|%{_poids}%"
+			PlaySoundProtect(player)
+			console command "/advancement grant %player% only cite:use_brouillage_silent"
+			wait 15 minutes
+			delete {cw.is_brouille::%player%}
+			send "&5[{@cite_prefix}&5] &6Votre effet de brouillage discret &ea pris fin." to player
+		else:
+			cancel event
+			send "&5[{@cite_prefix}&5] &cVous avez déjà cet effet appliqué!"
+
+on death of player:
+	console command "/advancement grant %victim% only cite:die"
+	if {cw.advancement::first_die} is not set:
+		console command "/advancement grant %victim% only cite:first_die"
+		set {cw.advancement::first_die} to victim
+	if player is wearing all diamond armour:
+		console command "/advancement grant %victim% only cite:die_diamond_armor"
+	if damage is caused by fall:
+		if victim is wearing netherite boots:
+			console command "/advancement grant %victim% only cite:die_netherite_boots"
+	set {_item} to stick with name "&c&lBâton de capture"
+	loop all items in inventory of player:
+		if loop-item is {_item}:
+			console command "/advancement grant %victim% only cite:die_with_capture_stick"
+	set {_diff2} to round (unix timestamp of now - unix timestamp of {cw.start_timestamp})
+	delete {cw.combat.time_left::%player%}
+	if attacker is a player:
+		console command "/advancement grant %victim% only cite:killed"
+		if {cw.advancement::first_kill} is not set:
+			console command "/advancement grant %attacker% only cite:first_kill"
+			set {cw.advancement::first_kill} to attacker
+		console command "/advancement grant %attacker% only cite:kill"
+		if victim's armor value is 0:
+			console command "/advancement grant %victim% only cite:killed_without_armor"
+		set {_heures} to {_diff2}/3600
+		set {_emeraudes_attacker} to round ({_heures}/5+0.005*{cw.emeralds.player::%victim%}) + 5
+		set {_emeraudes_victim} to round ({_heures}/6+0.0025*{cw.emeralds.player::%victim%}) + 2
+		loop {cw.capture.attacker::*}:
+			if loop-value is victim:
+				if {cw.equipe.player_list::%{cw.capture.owned::%loop-index%}%::*} contains attacker:
+					console command "/advancement grant %attacker% only cite:protect_point_kill"
+		if {cw.kill.boost::%attacker%} is set:
+			console command "/advancement grant %attacker% only cite:kill_with_bonus"
+			remove luck from attacker
+			apply luck of tier 1 to attacker for 10 minutes
+			send "&5[{@cite_prefix}&5] &6Vous gagnez &e&l%{_emeraudes_attacker}% &eémeraudes bonus &c&l(100%% d'émeraudes en plus) &6grâce à votre boost !" to attacker
+			set {_emeraudes_attacker} to round up (2*{_emeraudes_attacker})
+		GiveEmeralds(attacker, {_emeraudes_attacker})
+		#add {_emeraudes_attacker} to {cw.emeralds.player::%attacker%}
+		#add {_emeraudes_attacker} to {cw.emeralds.equipe::%{cw.equipe.team_player::%attacker%}%}
+		set {cw.kill.boost::%attacker%} to 10
+		remove {_emeraudes_victim} from {cw.emeralds.player::%victim%}
+		remove {_emeraudes_victim} from {cw.emeralds.equipe::%{cw.equipe.team_player::%victim%}%}
+		send "&5[{@cite_prefix}&5] &6Vous perdez &c&l%{_emeraudes_victim}% &c&lémeraudes &6pour avoir été tué par &c%display name of attacker%" to victim
+		send "&5[{@cite_prefix}&5] &6Vous gagnez &c&l%{_emeraudes_attacker}% &c&lémeraudes &6pour avoir tué &c%display name of victim%" to attacker
+		broadcast "&5[{@cite_prefix}&5] &c&l%display name of attacker%&6 a tué &c%display name of victim%&6 avec &a&l%number of emerald in victim's inventory%&a émeraudes dans son inventaire.%nl%&d%attacker% &6gagne &a&l%{_emeraudes_attacker}% &aémeraudes%nl%&d%victim% &6perd &a&l%{_emeraudes_victim}% &aémeraudes"
+		send "&5[{@cite_prefix}&5] &6Vous gagnez un boost de &c&l100%% d'émeraudes en plus&6 en cas de kill dans les &c10 prochaines minutes !" to attacker
+		add 1 to {cw.death.kill::%attacker%}
+		add 1 to {cw.death.tue::%victim%}
+
+		set {_next_kill_date} to now
+		add 5 hours to {_next_kill_date}
+		#broadcast "set {cw.next_attack::%{cw.equipe.team_player::%attacker%}%::%victim%} to %{_next_kill_date}%"
+		set {cw.next_attack::%{cw.equipe.team_player::%attacker%}%::%victim%} to {_next_kill_date}
+		send "&5[{@cite_prefix}&5] &cVous ne pouvez plus attaquer &6%victim% &cpendant 5 heures car votre éuipe l'a tué&6, sauf s'il accepte votre attaque en utilisant <##2997ff>/attack" to {cw.equipe.player_list::%{cw.equipe.team_player::%attacker%}%::*}
+		send colored "&5[{@cite_prefix}&5] &cVous êtes protégé des attaques de l'équipe &6%{cw.equipe.color::%{cw.equipe.team_player::%attacker%}%}%%{cw.equipe.name::%{cw.equipe.team_player::%attacker%}%}% &cpendant 5 heures&6, sauf si vous acceptez l'attaque en utilisant <##2997ff>/attack %attacker%" to victim
+		CheckAdvancement(attacker)
+	else:
+		set {_heures} to {_diff2}/3600
+		set {_emeraudes_victim} to round ({_heures}/6+0.0025*{cw.emeralds.player::%victim%}) + 2
+		remove {_emeraudes_victim} from {cw.emeralds.player::%victim%}
+		remove {_emeraudes_victim} from {cw.emeralds.equipe::%{cw.equipe.team_player::%victim%}%}
+		send "&5[{@cite_prefix}&5] &6Vous perdez &c&l%{_emeraudes_victim}% &cémeraudes &6pour avoir être mort en PVE" to victim
+		broadcast "&5[{@cite_prefix}&5] &c&l%display name of victim%&6 est mort par %event-damagecause% avec &a&l%number of emerald in victim's inventory%&a émeraudes dans son inventaire.%nl%&d%victim% &6perd &a&l%{_emeraudes_victim}% &aémeraudes"
+		add 1 to {cw.death.pve::%victim%}
+	loop {cw.equipe.player_list::%{cw.equipe.team_player::%victim%}%::*}:
+		if distance between victim and loop-value is smaller than 75:
+			if loop-value is not victim:
+				apply speed of tier 1 without particles to loop-value for 90 seconds
+				send "&5[{@cite_prefix}&5] &6Vous obtenez l'effet rapidité 1 pendant 1 minute 30 secondes car un allié est mort à moins de 75 blocs." to loop-value
+	CheckAdvancement(victim)
+	UpdateClassement()
+
+#A modif peut etre
+function ResetClassement():
+	loop size of {cw.equipe.name::*} times:
+		console command "/hd setline classement_equipe %1+2*loop-number% &e(Personne)"
+	loop size of {cw.list_players::*} times:
+		console command "/hd setline classement_perso %2+loop-number% &e(Personne)"
+
+function CheckAdvancement(player:player):
+	if {cw.emeralds.player::%{_player}%} is 666:
+		console command "/advancement grant %{_player}% only cite:bank_emerald_666"
+	if {cw.emeralds.player::%{_player}%} > 5000:
+		console command "/advancement grant %{_player}% only cite:bank_emerald_5000"
+
+function UpdateClassement():
+	if {cw.time_diff} < 7 day:
+		TriListe("cw.emeralds.player","cw.emeralds.top.player.index","cw.emeralds.top.player.value", "%size of {cw.list_players::*}%")
+		TriListe("cw.emeralds.equipe","cw.emeralds.top.equipe.index","cw.emeralds.top.equipe.value", "%size of {cw.equipe.name::*}%")
+		wait 1 second
+		loop {cw.emeralds.top.equipe::*}:
+			delete {_rank}
+			set {_rank} to loop-value parsed as integer
+			if {_rank} is 1:
+				set {_suffix} to "er"
+			else:
+				set {_suffix} to "ème"
+			if {_rank} > 0:
+				console command "/hd setline classement_equipe %1+2*{_rank}% &b&l%{_rank}%%{_suffix}%: %{cw.equipe.color::%loop-index%}%Équipe &l%{cw.equipe.name::%loop-index%}%"
+		loop {cw.emeralds.top.player::*}:
+			delete {_rank}
+			set {_rank} to loop-value parsed as integer
+			if {_rank} is 1:
+				set {_suffix} to "er"
+				if {cw.list_players::%loop-index%} is online:
+					console command "/advancement grant %{cw.list_players::%loop-index%}% only cite:classement_first"
+			else:
+				set {_suffix} to "ème"
+			if {cw.time_diff} > 1 day:
+				if {cw.list_players::%loop-index%} is online:
+					if {_rank} <= 3:
+						console command "/advancement grant %{cw.list_players::%loop-index%}% only cite:classement_top3"
+					if {_rank} >= size of {cw.list_players::*}-8:
+						console command "/advancement grant %{cw.list_players::%loop-index%}% only cite:classement_last"
+			if {_rank} > 0:
+				console command "/hd setline classement_perso %2+{_rank}% &b&l%{_rank}%%{_suffix}%: %{cw.equipe.color::%{cw.equipe.team_player::%loop-index%}%}%&l%{cw.list_players::%loop-index%}%"
+
+function WipeScoreBoard():
+	loop all players:
+		wipe loop-player sidebar
+
+function ShowScoreBoard():
+	set {_diff} to round (unix timestamp of now - unix timestamp of {cw.start_timestamp})
+	set {_page} to mod({_diff},120)
+	if {_page} is between 0 and 19:
+		set {_pagen} to 1
+	else if {_page} is between 20 and 34:
+		set {_pagen} to 2
+	else if {_page} is between 35 and 44:
+		set {_pagen} to 1
+	else if {_page} is between 45 and 59:
+		set {_pagen} to 2
+	else if {_page} is between 60 and 77:
+		set {_pagen} to 1
+	else if {_page} is between 78 and 90:
+		set {_pagen} to 2
+	else if {_page} is between 92 and 98:
+		set {_pagen} to 3
+	else if {_page} is between 99 and 105:
+		set {_pagen} to 4
+	else if {_page} is between 106 and 112:
+		set {_pagen} to 5
+	else if {_page} is between 113 and 119:
+		set {_pagen} to 6
+
+	if {_pagen} is 1:
+		loop all players:
+			if loop-player is in world "cite":
+				set {_world} to "&aOverWorld"
+			else if loop-player is in world "cite_nether":
+				set {_world} to "&cNether"
+			else if loop-player is in world "cite_the_end":
+				set {_world} to "&bEnd"
+			if "%region at loop-player%" contain "spawn":
+				set {_region} to "&dSpawn"
+			else if "%region at loop-player%" contain "warzone":
+				set {_region} to "&4WarZone"
+			else if "%region at loop-player%" contain "zonelibre":
+				set {_region} to "&bZone libre"
+			else:
+				set {_region} to "&eZone explo."
+			set {_zone::%loop-player%} to "%{_world}%, %{_region}%"
+			add 1 to {_player_in_region::%{_zone::%loop-player%}%}
+		loop all players:
+			wipe loop-player sidebar
+			set name of sidebar of loop-player to "&d&lCité Wind. S3 &6(1/6)"
+			set score "&6Infos générales:" in sidebar of loop-player to 15
+			set score "&e--------------" in sidebar of loop-player to 14
+			set score "&3Temps: %GetTimeText({_diff}, ""dd hh mm ss"")%" in sidebar of loop-player to 13
+			set score "&6Eq. %{cw.equipe.team_player::%loop-player%}%: %{cw.equipe.color_16::%{cw.equipe.team_player::%loop-player%}%}%&l%{cw.equipe.name::%{cw.equipe.team_player::%loop-player%}%}%" in sidebar of loop-player to 10 #%{cw.equipe.color::%{cw.equipe.team_player::%loop-player%}%}%
+			set score "&e---------------" in sidebar of loop-player to 9
+			set score "&6Emrd. équipe: &a%{cw.emeralds.equipe::%{cw.equipe.team_player::%loop-player%}%}%" in sidebar of loop-player to 8
+			set score "&6Emrd. perso.: &a%{cw.emeralds.player::%loop-player%}%" in sidebar of loop-player to 7
+			set score "&6Emrd. inv.: &a%number of emeralds in loop-player's inventory%" in sidebar of loop-player to 6
+			set score "&e----------------" in sidebar of loop-player to 5
+			set score "%{_zone::%loop-player%}%" in sidebar of loop-player to 4
+			set score "&6Dans votre zone: &c&l%{_player_in_region::%{_zone::%loop-player%}%}%" in sidebar of loop-player to 3
+			if world of loop-player is "cite":
+				set score "&6Dist. spawn: &c&l%round distance between loop-player and {cw.location.spawn}%&cb" in sidebar of loop-player to 2
+			else if world of loop-player is "cite_nether":
+				set score "&6Dist. spawn: &c&l%round distance between loop-player and {cw.location.spawn_nether}%&cb" in sidebar of loop-player to 2
+			else if world of loop-player is "cite_the_end":
+				set score "&6Dist. spawn: &c&l%round distance between loop-player and {cw.location.spawn_end}%&cb" in sidebar of loop-player to 2
+			set score "&6Joueurs co.: &a&l%number of players%/&2%size of {cw.list_players::*}%" in sidebar of loop-player to 1
+	else if {_pagen} is 2:
+		loop all players:
+			wipe loop-player sidebar
+			set name of sidebar of loop-player to "&d&lCité Wind. S3 &6(2/6)"
+			set score "&6Classement" in sidebar of loop-player to 9999
+			set score "&6dans l'équipe:" in sidebar of loop-player to 9998
+			set score "&e------------" in sidebar of loop-player to 9997
+			loop {cw.equipe.player_list::%{cw.equipe.team_player::%loop-player%}%::*}:
+				set score "&6%loop-value-2%: &c&l%{cw.emeralds.player::%loop-value-2%}%" in sidebar of loop-value-1 to {cw.emeralds.player::%loop-value-2%}
+			set score "&e-------------" in sidebar of loop-player to -94
+			set score "&6Total équipe: &a%{cw.emeralds.equipe::%{cw.equipe.team_player::%loop-player%}%}%" in sidebar of loop-player to -95
+			set score "&6Total perso.: &a%{cw.emeralds.player::%loop-player%}%" in sidebar of loop-player to -96
+			set score "&6Total inv.: &a%number of emeralds in loop-player's inventory%" in sidebar of loop-player to -97
+			set score "&6Rang perso.: &a&l%{cw.emeralds.top.player::%loop-player%}%/&2%size of {cw.list_players::*}%" in sidebar of loop-player to -98
+			if {cw.in_spawn_time::%loop-player%} >= 20:
+				set score "&4Tps spawn écoulé!" in sidebar of loop-player to -99
+			else:
+				set score "&6Tps spawn: &c&l%20-{cw.in_spawn_time::%loop-player%}%&c min." in sidebar of loop-player to -99
+	else if {_pagen} is 3:
+		loop all players:
+			wipe loop-player sidebar
+			set name of sidebar of loop-player to "&d&lCité Wind. S3 &6(3/6)"
+			set score "&6TOP &a&lKills:" in sidebar of loop-player to 999
+			set score "&e------------" in sidebar of loop-player to 998
+			loop {cw.death.kill::*}:
+				set score "%{cw.equipe.color_16::%{cw.equipe.team_player::%loop-index%}%}%%{cw.list_players::%loop-index%}%: &c&l%loop-value-2%" in sidebar of loop-value-1 to loop-value-2 #%{cw.equipe.color::%{cw.equipe.team_player::%loop-index%}%}%
+	else if {_pagen} is 4:
+		loop all players:
+			wipe loop-player sidebar
+			set name of sidebar of loop-player to "&d&lCité Wind. S3 &6(4/6)"
+			set score "&6TOP Morts &a&lTotal:" in sidebar of loop-player to 999
+			set score "&e------------" in sidebar of loop-player to 998
+			loop {cw.death.pve::*}:
+				set score "%{cw.equipe.color_16::%{cw.equipe.team_player::%loop-index%}%}%%{cw.list_players::%loop-index%}%: &c&l%(loop-value-2)+{cw.death.tue::%loop-index%}%" in sidebar of loop-value-1 to (loop-value-2+{cw.death.tue::%loop-index%})
+	else if {_pagen} is 5:
+		loop all players:
+			wipe loop-player sidebar
+			set name of sidebar of loop-player to "&d&lCité Wind. S3 &6(5/6)"
+			set score "&6TOP Mort &a&lPvP:" in sidebar of loop-player to 999
+			set score "&e------------" in sidebar of loop-player to 998
+			loop {cw.death.tue::*}:
+				set score "%{cw.equipe.color_16::%{cw.equipe.team_player::%loop-index%}%}%%{cw.list_players::%loop-index%}%: &c&l%loop-value-2%" in sidebar of loop-value-1 to loop-value-2
+	else if {_pagen} is 6:
+		loop all players:
+			wipe loop-player sidebar
+			set name of sidebar of loop-player to "&d&lCité Wind. S3 &6(6/6)"
+			set score "&6TOP Mort &a&lPvE:" in sidebar of loop-player to 999
+			set score "&e------------" in sidebar of loop-player to 998
+			loop {cw.death.pve::*}:
+				set score "%{cw.equipe.color_16::%{cw.equipe.team_player::%loop-index%}%}%%{cw.list_players::%loop-index%}%: &c&l%loop-value-2%" in sidebar of loop-value-1 to loop-value-2
+
+function PlaySoundChangeZone(player:player):
+	play sound "block.conduit.ambient" in hostile mobs category at volume 0.5 at pitch 0.5 to {_player}
+	play sound "block.conduit.ambient" in hostile mobs category at volume 0.5 at pitch 0.7 to {_player}
+	play sound "block.conduit.ambient" in hostile mobs category at volume 0.5 at pitch 0.8 to {_player}
+	play sound "block.conduit.ambient" in hostile mobs category at volume 0.5 at pitch 0.9 to {_player}
+	play sound "block.conduit.ambient" in hostile mobs category at volume 0.5 at pitch 1 to {_player}
+	play sound "block.conduit.ambient" in hostile mobs category at volume 0.5 at pitch 1.1 to {_player}
+	play sound "block.conduit.ambient" in hostile mobs category at volume 0.5 at pitch 1.2 to {_player}
+	play sound "block.conduit.ambient" in hostile mobs category at volume 0.5 at pitch 1.4 to {_player}
+	play sound "block.conduit.ambient" in hostile mobs category at volume 0.5 at pitch 1.6 to {_player}
+	play sound "block.conduit.ambient" in hostile mobs category at volume 0.5 at pitch 1.8 to {_player}
+	play sound "block.conduit.ambient" in hostile mobs category at volume 0.5 at pitch 2 to {_player}
+	wait 3 seconds
+	play sound "block.conduit.ambient" in hostile mobs category at volume 0.5 at pitch 2 to {_player}
+	play sound "block.conduit.ambient" in hostile mobs category at volume 0.5 at pitch 1.9 to {_player}
+
+function PlaySoundProtect(player:player):
+	play sound "ui.toast.challenge_complete" in hostile mobs category at volume 0.5 at pitch 2 to {_player}
+	play sound "ui.toast.challenge_complete" in hostile mobs category at volume 0.5 at pitch 1.9 to {_player}
+	play sound "ui.toast.challenge_complete" in hostile mobs category at volume 0.5 at pitch 1.8 to {_player}
+	play sound "ui.toast.challenge_complete" in hostile mobs category at volume 0.5 at pitch 1.7 to {_player}
+	play sound "ui.toast.challenge_complete" in hostile mobs category at volume 0.5 at pitch 1.6 to {_player}
+	play sound "ui.toast.challenge_complete" in hostile mobs category at volume 0.5 at pitch 1.5 to {_player}
+	play sound "ui.toast.challenge_complete" in hostile mobs category at volume 0.5 at pitch 1.4 to {_player}
+	play sound "ui.toast.challenge_complete" in hostile mobs category at volume 0.5 at pitch 1.3 to {_player}
+	play sound "ui.toast.challenge_complete" in hostile mobs category at volume 0.5 at pitch 1.2 to {_player}
+
+function PrepareTeams():
+	loop size of {cw.equipe.name::*} times:
+		console command "/team add Equipe_%loop-number% ""%{cw.equipe.name::%loop-number%}%"""
+		console command "/team modify Equipe_%loop-number% collisionRule always"
+		console command "/team modify Equipe_%loop-number% deathMessageVisibility always"
+		console command "/team modify Equipe_%loop-number% friendlyFire false"
+		console command "/team modify Equipe_%loop-number% nametagVisibility always"
+		console command "/team modify Equipe_%loop-number% seeFriendlyInvisibles true"
+		console command "/team modify Equipe_%loop-number% nametagVisibility always"
+		loop {cw.equipe.player_list::%loop-number%::*}:
+			console command "/team join Equipe_%loop-number% %loop-value-2%"
+
+function GetTimeText(time:number, sortie: text = "mm ss") :: text:
+	set {_time} to {_time}*10
+	if {_sortie} contains "dd":
+		set {_day} to "&c%floor({_time}/864000)%&6j "
+	else:
+		set {_day} to ""
+	if {_sortie} contains "hh":
+		set {_hour} to "&c%Convert2Chiffre(mod(floor({_time}/36000),24))%&6:"
+	else:
+		set {_hour} to ""
+	if {_sortie} contains "mm":
+		set {_minute} to "&c%Convert2Chiffre(mod(floor({_time}/600),60))%&6:"
+	else:
+		set {_minute} to ""
+	if {_sortie} contains "ss":
+		set {_second} to "&c%Convert2Chiffre(mod(floor({_time}/10),60))%"
+	else:
+		set {_second} to ""
+	if {_sortie} contains "ms":
+		set {_millisecond} to "&6.&c%mod({_time},10)%"
+	else:
+		set {_millisecond} to ""
+	set {_newtime} to "%{_day}%%{_hour}%%{_minute}%%{_second}%%{_millisecond}%"
+	return {_newtime}
+
+function Convert2Chiffre(number:number) :: text:
+	if {_number} < 10:
+		return "0%{_number}%"
+	else:
+		return "%{_number}%"
+
+function TriListe(listin:text,listoutindex:text,listoutvalue:text,int:text):
+	delete {%{_listoutindex}%::*}
+	delete {%{_listoutvalue}%::*}
+	set {_nombre_premier} to {_int} parsed as integer
+	loop {_nombre_premier} times:
+		set {%{_listoutvalue}%::%loop-value%} to 0
+	loop {%{_listin}%::*}:
+		set {_currentvalue} to {%{_listin}%::%loop-index%}
+		set {_index} to 1
+		while {_index} <= {_nombre_premier}:
+			if {_currentvalue} > {%{_listoutvalue}%::%{_index}%}:
+				delete {_tempvalue::*}
+				delete {_tempindex::*}
+				set {_i} to 1
+				loop ({_index}-1) times:
+					add {%{_listoutvalue}%::%{_i}%} to {_tempvalue::*}
+					add {%{_listoutindex}%::%{_i}%} to {_tempindex::*}
+					add 1 to {_i}
+				add {_currentvalue} to {_tempvalue::*}
+				add loop-index to {_tempindex::*}
+				set {_i} to {_index}
+				loop ({_nombre_premier}-{_index}) times:
+					add {%{_listoutvalue}%::%{_i}%} to {_tempvalue::*}
+					add {%{_listoutindex}%::%{_i}%} to {_tempindex::*}
+					add 1 to {_i}
+				set {%{_listoutindex}%::*} to {_tempindex::*}
+				set {%{_listoutvalue}%::*} to {_tempvalue::*}
+				set {_index} to {_nombre_premier}
+			add 1 to {_index}
+	wait 1 tick
+	loop {cw.emeralds.top.player.index::*}:
+		set {cw.emeralds.top.player::%loop-value%} to loop-index
+	loop {cw.emeralds.top.equipe.index::*}:
+		set {cw.emeralds.top.equipe::%loop-value%} to loop-index

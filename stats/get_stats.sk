@@ -1,0 +1,41 @@
+command /getstats:
+    trigger:
+        set {_text} to ""
+        loop {cw.list_players::*}:
+            set {_text} to "%{_text}%""%loop-value%"" : ""%uuid of loop-value%"", "
+        broadcast "%{_text}%"
+            #add uuid of loop-value to {_uuid::*}
+
+        #broadcast "%joined {cw.list_players::*} by """"%"
+
+            #set {_text::*} to file contents of "/cite/stats/%{_uuid}%.json"
+            #set {_jsons::*} to file contents of "/cite/stats/%{_uuid}%.json"
+            #broadcast "uuid: %{_uuid}%, text: %{_jsons::1}%"
+            #set {_time} to content of json value "stats/minecraft:custom/minecraft:sprint_one_cm" from text {_text::1}
+            #broadcast "uuid: %{_uuid}%, time: %{_time}%"
+
+
+command /printvar <text> <text>:
+  trigger:
+    set {_text} to ""
+    loop {%arg 2%::*}:
+      if arg 1 is "true":
+        set {_text} to "%{_text}%""%loop-index%"" : ""%loop-value%"", "
+      else:
+        set {_text} to "%{_text}%""%loop-index%"" : %loop-value%, "
+    broadcast "%{_text}%"
+
+
+command /showtrades <integer>:
+  trigger:
+    set {_text} to ""
+    set {_total} to 0
+    set {_trades::*} to "allium", "andesite", "apple", "azure_bluet", "bamboo", "basalt", "bell", "blackstone", "blaze_rod", "blue_orchid", "bone_block", "bone", "bookshelf", "brown_mushroom", "cactus", "carrot", "clay", "coal", "cobblestone", "conduit", "cooked_beef", "cooked_cod", "cooked_salmon", "cornflower", "crimson_fungus", "dandelion", "diamond_horse_armor", "diamond", "diorite", "dirt", "dragon_egg", "dried_kelp", "elytra", "enchanted_book", "ender_pearl", "feather", "flint", "ghast_tear", "glowstone_dust", "gold_ingot", "golden_apple", "golden_horse_armor", "granite", "gravel", "gunpowder", "heart_of_the_sea", "honey_bottle", "iron_horse_armor", "iron_ingot", "kelp", "lapis_lazuli", "leather_horse_armor", "leather", "lilac", "lily_of_the_valley", "lily_pad", "melon", "music_disc_11", "music_disc_blocks", "music_disc_cat", "music_disc_chirp", "music_disc_far", "music_disc_mall", "music_disc_mellohi", "music_disc_stal", "music_disc_strad", "music_disc_wait", "name_tag", "nautilus_shell", "nether_wart_block", "nether_wart", "netherrack", "oak_sapling", "obsidian", "orange_tulip", "oxeye_daisy", "packed_ice", "paper", "phantom_membrane", "pink_tulip", "poisonous_potato", "poppy", "potato", "pufferfish", "pumpkin_seeds", "pumpkin", "quartz", "red_mushroom", "red_tulip", "redstone", "rose_bush", "rotten_flesh", "saddle", "sand", "sea_pickle", "shroomlight", "slime_ball", "snow_block", "soul_sand", "spider_eye", "spruce_log", "stone", "string", "sugar_cane", "sunflower", "sweet_berries", "terracotta", "tnt", "warped_fungus", "wheat_seeds", "white_tulip" and "white_wool"
+    loop {_trades::*}:
+      set {_num} to 0
+      loop {cw.equipe.player_list::%arg 1%::*}:
+        add {cw.trade::itemtype:-1,false,%loop-value-1%|::%loop-value-2%} to {_num}
+        add {cw.trade::itemtype:-1,false,%loop-value-1%|::%loop-value-2%} to {_total}
+      set {_text} to "%{_text}%""%loop-value%"" : %{_num}%, "
+    broadcast "%{_text}%"
+    broadcast "total: %{_total}%"
